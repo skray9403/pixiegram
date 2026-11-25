@@ -15,7 +15,7 @@ val GoogleSans = FontFamily(
 )
 
 internal fun pixelTypography(family: FontFamily = GoogleSans, base: Typography = Typography()): Typography {
-    fun TextStyle.sans() = copy(fontFamily = family)
+    fun TextStyle.sans() = copy(fontFamily = family, fontFeatureSettings = "tnum")
     return base.copy(
     displayLarge = base.displayLarge.sans(),
     displayMedium = base.displayMedium.sans(),

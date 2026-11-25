@@ -43,6 +43,7 @@ fun PixelTheme(settings: AppearanceSettings, content: @Composable () -> Unit) {
         motionScheme = MotionScheme.expressive(),
     ) {
         CompositionLocalProvider(
+            LocalMotionSpec provides MotionTokens.Default,
             LocalAvatarShape provides animatedAvatarShape(settings.avatarShape, settings.avatarCorner),
             LocalAvatarKindShapes provides AvatarKinds.associateWith { kind ->
                 androidx.compose.runtime.key(kind) { animatedAvatarShape(settings.kindShapes[kind.name] ?: settings.avatarShape, settings.avatarCorner) }

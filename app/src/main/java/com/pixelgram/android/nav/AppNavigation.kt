@@ -1,5 +1,7 @@
 package com.pixelgram.android.nav
 
+
+import com.pixelgram.android.ui.components.PredictiveBackFadeOverlay
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -416,17 +418,18 @@ private class EtgBackDecorator : androidx.navigation3.runtime.NavEntryDecorator<
                         val half = h / 2f
                         return (if (dy < 0) -1f else 1f) * EtgBack.verticalCurve(minOf(half, kotlin.math.abs(dy)) / half) * maxOf(0f, (h - height) / 2f - margin)
                     }
-                    val closeScale = 1f + (0.85f - 1f) * p
-                    val targetLeft = if (EtgBack.fromLeft) w - margin - w * 0.85f else (w - w * 0.85f) / 2f
-                    val closeLeft = targetLeft * p
-                    val closeTop = (h - h * 0.85f) / 2f * p + yOffset(h * closeScale)
-                    val corner = 40.dp.toPx() * p
+                    val direction = if (EtgBack.fromLeft) 1f else -1f
+                    val minScale = com.pixelgram.android.ui.theme.MotionTokens.PredictiveBackMinScale
+                    val closeScale = 1f + (minScale - 1f) * p
+                    val closeOffsetX = direction * w * 0.14f * p
+                    val closeTop = (h - h * closeScale) / 2f + yOffset(h * closeScale)
+                    val corner = com.pixelgram.android.ui.theme.MotionTokens.PredictiveBackCornerRadius.toPx() * p
                     val enterBase = 0.95f
-                    val enterOffset = maxOf(w * enterBase * 0.15f, shift)
-                    val enterScale = enterBase * (1f + (0.85f - 1f) * p)
+                    val enterOffset = direction * maxOf(w * enterBase * 0.15f, shift)
+                    val enterScale = enterBase * (1f + (minScale - 1f) * p)
                     val enterCx = w / 2f - enterOffset
                     val enterCy = h / 2f + yOffset(h * closeScale)
-                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0f, 0f)
+                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
                     if (phase == EtgBack.Commit) {
                         val raw = EtgBack.commitRaw
                         val c = EtgBack.commitCurve(raw)
@@ -434,7 +437,7 @@ private class EtgBackDecorator : androidx.navigation3.runtime.NavEntryDecorator<
                             val scale = closeScale + (1f - closeScale) * c
                             scaleX = scale
                             scaleY = scale
-                            translationX = closeLeft + shift * c
+                            translationX = closeOffsetX + direction * shift * c
                             translationY = closeTop * (1f - c)
                             alpha = maxOf(1f - 5f * raw, 0f)
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(corner * (1f - c))
@@ -443,7 +446,7 @@ private class EtgBackDecorator : androidx.navigation3.runtime.NavEntryDecorator<
                             val scale = enterScale + (1f - enterScale) * c
                             scaleX = scale
                             scaleY = scale
-                            translationX = (enterCx - w * enterScale / 2f) * (1f - c)
+                            translationX = (enterCx - w / 2f) * (1f - c)
                             translationY = (enterCy - h * enterScale / 2f) * (1f - c)
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(corner * (1f - c))
                             clip = c < 1f
@@ -451,14 +454,14 @@ private class EtgBackDecorator : androidx.navigation3.runtime.NavEntryDecorator<
                     } else if (closing) {
                         scaleX = closeScale
                         scaleY = closeScale
-                        translationX = closeLeft
+                        translationX = closeOffsetX
                         translationY = closeTop
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(corner)
                         clip = true
                     } else {
                         scaleX = enterScale
                         scaleY = enterScale
-                        translationX = enterCx - w * enterScale / 2f
+                        translationX = enterCx - w / 2f
                         translationY = enterCy - h * enterScale / 2f
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(corner)
                         clip = true
@@ -471,13 +474,27 @@ private class EtgBackDecorator : androidx.navigation3.runtime.NavEntryDecorator<
                         if (a > 0f) drawRect(androidx.compose.ui.graphics.Color.Black.copy(alpha = a))
                     }
                 },
-        ) { if (!EtgBack.matches(key, EtgBack.hidden)) entry.Content() }
+        ) {
+            if (!EtgBack.matches(key, EtgBack.hidden)) {
+                if (EtgBack.matches(key, EtgBack.closingKey)) {
+                    PredictiveBackFadeOverlay(
+                        progress = { EtgBack.progress },
+                        swipeFromLeft = { EtgBack.fromLeft },
+                        scrim = { EtgBack.scrim },
+                    ) {
+                        entry.Content()
+                    }
+                } else {
+                    entry.Content()
+                }
+            }
+        }
     },
 )
 
 object NavMotion {
-    private val spatial = androidx.compose.animation.core.spring<androidx.compose.ui.unit.IntOffset>(dampingRatio = 0.9f, stiffness = 1400f)
-    private val effects = androidx.compose.animation.core.spring<Float>(dampingRatio = 1f, stiffness = 3800f)
+    private val spatial = androidx.compose.animation.core.spring<androidx.compose.ui.unit.IntOffset>(dampingRatio = 0.76f, stiffness = 420f)
+    private val effects = androidx.compose.animation.core.spring<Float>(dampingRatio = 0.82f, stiffness = 900f)
     private const val Shift = 0.12f
 
     fun forward(): androidx.compose.animation.ContentTransform =

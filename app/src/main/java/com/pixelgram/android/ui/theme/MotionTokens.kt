@@ -1,0 +1,33 @@
+package com.pixelgram.android.ui.theme
+
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.spring
+import androidx.compose.runtime.Immutable
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
+
+@Immutable
+data class MotionSpec(
+    val micro: SpringSpec<Float> = spring(dampingRatio = 0.82f, stiffness = 900f),
+    val spatial: SpringSpec<Float> = spring(dampingRatio = 0.76f, stiffness = 420f),
+    val expressive: SpringSpec<Float> = spring(dampingRatio = 0.64f, stiffness = 320f),
+    val dismiss: SpringSpec<Float> = spring(dampingRatio = 0.88f, stiffness = 650f),
+    val microDp: SpringSpec<Dp> = spring(dampingRatio = 0.82f, stiffness = 900f),
+    val spatialDp: SpringSpec<Dp> = spring(dampingRatio = 0.76f, stiffness = 420f),
+    val expressiveDp: SpringSpec<Dp> = spring(dampingRatio = 0.64f, stiffness = 320f),
+    val dismissDp: SpringSpec<Dp> = spring(dampingRatio = 0.88f, stiffness = 650f),
+    val spatialSize: SpringSpec<IntSize> = spring(dampingRatio = 0.76f, stiffness = 420f),
+    val dismissSize: SpringSpec<IntSize> = spring(dampingRatio = 0.88f, stiffness = 650f),
+)
+
+object MotionTokens {
+    val Default = MotionSpec()
+    const val FrameBudgetMs: Double = 8.33
+    const val MaxTouchToVisualMs: Long = 16L
+    const val PredictiveBackMinScale: Float = 0.88f
+    val PredictiveBackCornerRadius: Dp = 28.dp
+    val FabCollapseScrollThreshold: Dp = 24.dp
+    const val NoBounceDamping: Float = Spring.DampingRatioNoBouncy
+}

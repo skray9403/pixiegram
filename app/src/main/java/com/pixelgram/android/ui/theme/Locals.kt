@@ -5,6 +5,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Shape
 
 val LocalAvatarShape = staticCompositionLocalOf<Shape> { CircleShape }
+val LocalMotionSpec = staticCompositionLocalOf { MotionTokens.Default }
 val LocalDarkTheme = staticCompositionLocalOf { false }
 val LocalAppearance = androidx.compose.runtime.compositionLocalOf { com.pixelgram.android.settings.AppearanceSettings() }
 

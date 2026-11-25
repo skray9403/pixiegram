@@ -1,5 +1,11 @@
 package com.pixelgram.android.feature.chat
 
+
+import com.pixelgram.android.ui.theme.LocalMotionSpec
+
+import androidx.compose.material3.DropdownMenuItem
+
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material.icons.rounded.Lock
 import com.pixelgram.android.util.chatListTime
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -246,6 +252,11 @@ fun ChatScreen(graph: AppGraph, chatId: Long, navigator: Navigator, topicId: Int
     var shooting by remember { mutableStateOf<List<UiMessage>?>(null) }
     val appearance by graph.appearance.state.collectAsState()
     val listState = rememberLazyListState()
+    val isScrolled by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
+        }
+    }
     val anchor = androidx.compose.runtime.saveable.rememberSaveable(chatId, topicId) { longArrayOf(0L, 0L) }
     LaunchedEffect(listState) {
         androidx.compose.runtime.snapshotFlow {
@@ -352,6 +363,14 @@ fun ChatScreen(graph: AppGraph, chatId: Long, navigator: Navigator, topicId: Int
             }
         }
     }
+    val displayTitle = when {
+        saved -> stringResource(R.string.drawer_saved)
+        snapshot.users[privateUserId]?.deleted == true -> stringResource(R.string.chat_deleted_account)
+        else -> snapshot.users[privateUserId]?.name ?: ui.title
+    }
+    val openChatDetails = {
+        navigator.open(if (saved) com.pixelgram.android.nav.SavedKey else ProfileKey(privateUserId, chatId))
+    }
     androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalUriHandler provides chatUri) {
     Scaffold(
         topBar = {
@@ -370,7 +389,13 @@ fun ChatScreen(graph: AppGraph, chatId: Long, navigator: Navigator, topicId: Int
                     onDelete = { deleting = selected },
                     onShot = { shooting = selected },
                 )
-            } else TopAppBar(
+            } else ChatAdaptiveTopBar(
+                title = displayTitle,
+                isScrolled = isScrolled,
+                onOpenProfile = openChatDetails,
+                onSearch = { navigator.open(com.pixelgram.android.nav.SearchKey) },
+            ) {
+                TopAppBar(
                 title = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -443,6 +468,7 @@ fun ChatScreen(graph: AppGraph, chatId: Long, navigator: Navigator, topicId: Int
                     }
                 },
             )
+            }
         },
         bottomBar = {
             if (selected.isNotEmpty()) {
@@ -4096,3 +4122,86 @@ private fun PinDialog(graph: com.pixelgram.android.AppGraph, chatId: Long, onDis
     )
 }
 
+
+
+@Composable
+private fun ChatAdaptiveTopBar(
+    title: String,
+    isScrolled: Boolean,
+    onOpenProfile: () -> Unit,
+    onSearch: () -> Unit,
+    expandedContent: @Composable () -> Unit,
+) {
+    val motion = LocalMotionSpec.current
+    var menuExpanded by remember { mutableStateOf(false) }
+    androidx.compose.animation.AnimatedContent(
+        targetState = isScrolled,
+        transitionSpec = {
+            fadeIn(animationSpec = motion.micro) togetherWith fadeOut(animationSpec = motion.dismiss)
+        },
+        label = "chat_top_bar_mode",
+        modifier = Modifier.fillMaxWidth(),
+    ) { scrolled ->
+        if (!scrolled) {
+            expandedContent()
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.statusBars)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .height(48.dp),
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    shape = CircleShape,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .height(44.dp)
+                        .widthIn(max = 240.dp)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                        .clickable(onClick = onOpenProfile),
+                ) {
+                    Box(Modifier.padding(horizontal = 18.dp), contentAlignment = Alignment.Center) {
+                        Text(
+                            title,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Box(Modifier.align(Alignment.CenterEnd)) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        shape = CircleShape,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp,
+                        modifier = Modifier.size(44.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
+                    ) {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(androidx.compose.material.icons.Icons.Rounded.MoreVert, "More options")
+                        }
+                    }
+                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.tab_profile)) },
+                            leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.Person, null) },
+                            onClick = { menuExpanded = false; onOpenProfile() },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.search_chats)) },
+                            leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.Search, null) },
+                            onClick = { menuExpanded = false; onSearch() },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

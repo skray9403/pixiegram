@@ -1,5 +1,7 @@
 package com.pixelgram.android.feature.chats
 
+
+import androidx.compose.animation.animateContentSize
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.ui.draw.clipToBounds
@@ -193,7 +195,19 @@ fun ChatsTab(
     newChat?.let { channel -> NewChatDialog(graph, navigator, channel) { newChat = null } }
     Scaffold(
         floatingActionButton = {
-            val visible = !archive && !tracker.hidden && !ChatSelection.active
+            val visible = !archive && !ChatSelection.active
+            val fabCollapsed = tracker.hidden
+            val motion = com.pixelgram.android.ui.theme.LocalMotionSpec.current
+            val fabCorner by androidx.compose.animation.core.animateDpAsState(
+                targetValue = if (fabCollapsed) 28.dp else 20.dp,
+                animationSpec = if (fabCollapsed) motion.dismissDp else motion.spatialDp,
+                label = "chat_fab_corner",
+            )
+            val fabScale by androidx.compose.animation.core.animateFloatAsState(
+                targetValue = if (fabCollapsed) 0.96f else 1f,
+                animationSpec = motion.micro,
+                label = "chat_fab_scale",
+            )
             var pencil by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
             var frame by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
             val gap = with(density) { CameraGap.roundToPx() }
@@ -214,15 +228,39 @@ fun ChatsTab(
                         androidx.compose.material3.ToggleFloatingActionButton(
                             checked = fabMenu,
                             onCheckedChange = { fabMenu = it },
-                            containerSize = androidx.compose.material3.ToggleFloatingActionButtonDefaults.containerSize(PencilSize, PencilOpenSize),
-                            modifier = Modifier.onGloballyPositioned { if (!fabMenu) pencil = it.boundsInRoot() },
+                            containerSize = androidx.compose.ui.unit.DpSize(
+                                width = if (fabCollapsed) 56.dp else 112.dp,
+                                height = 56.dp,
+                            ),
+                            modifier = Modifier
+                                .onGloballyPositioned { if (!fabMenu) pencil = it.boundsInRoot() }
+                                .graphicsLayer {
+                                    scaleX = fabScale
+                                    scaleY = fabScale
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(fabCorner)
+                                    clip = true
+                                }
+                                .animateContentSize(animationSpec = motion.spatialSize),
                         ) {
-                            val progress = checkedProgress
-                            Icon(
-                                if (progress > 0.5f) Icons.Rounded.Close else Icons.Rounded.Edit,
-                                stringResource(R.string.new_message),
-                                Modifier.graphicsLayer { rotationZ = progress * 90f },
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                                Icon(
+                                    if (fabMenu) Icons.Rounded.Close else Icons.Rounded.Edit,
+                                    stringResource(R.string.new_message),
+                                    Modifier.graphicsLayer { rotationZ = if (fabMenu) 90f else 0f },
+                                )
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = !fabCollapsed,
+                                    enter = androidx.compose.animation.expandHorizontally(animationSpec = motion.spatialSize) +
+                                        androidx.compose.animation.fadeIn(animationSpec = motion.micro),
+                                    exit = androidx.compose.animation.shrinkHorizontally(animationSpec = motion.dismissSize) +
+                                        androidx.compose.animation.fadeOut(animationSpec = motion.micro),
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("New", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
+                                    }
+                                }
+                            }
                         }
                     },
                 ) {
@@ -259,7 +297,7 @@ fun ChatsTab(
                                 }
                             }
                         }
-                        .animateFloatingActionButton(visible && !fabMenu && anchor != null && box != null, Alignment.Center),
+                        .animateFloatingActionButton(visible && !fabCollapsed && !fabMenu && anchor != null && box != null, Alignment.Center),
                 ) { Icon(Icons.Rounded.PhotoCamera, stringResource(R.string.stories_new)) }
             }
         },
@@ -1110,13 +1148,13 @@ private class HideOnScroll(private val hideAt: Float, private val showAt: Float)
     }
 }
 
-private val HideDistance = 16.dp
+private val HideDistance = com.pixelgram.android.ui.theme.MotionTokens.FabCollapseScrollThreshold
 private val PencilSize = 52.dp
 private val PencilOpenSize = 56.dp
 private val CameraSize = 40.dp
 private val CameraGap = 12.dp
 private val FabLift = 12.dp
-private val ShowDistance = 48.dp
+private val ShowDistance = 24.dp
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable

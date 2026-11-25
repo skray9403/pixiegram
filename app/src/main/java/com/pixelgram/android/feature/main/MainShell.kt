@@ -1,5 +1,7 @@
 package com.pixelgram.android.feature.main
 
+
+import com.pixelgram.android.ui.theme.LocalMotionSpec
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.ui.input.pointer.pointerInput
@@ -91,8 +93,8 @@ import com.pixelgram.android.settings.ThemeMode
 import com.pixelgram.android.td.LIST_ARCHIVE
 import com.pixelgram.android.td.LIST_MAIN
 import com.pixelgram.android.ui.components.Avatar
-import com.pixelgram.android.ui.components.CapsuleBar
-import com.pixelgram.android.ui.components.CapsuleItem
+import com.pixelgram.android.ui.components.FloatingMorphingNavigationDock
+import com.pixelgram.android.ui.components.MorphNavDestination
 import com.pixelgram.android.ui.components.LocalBottomBarPadding
 import com.pixelgram.android.ui.components.HiddenPhone
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -108,6 +110,7 @@ fun MainShell(graph: AppGraph, navigator: Navigator) {
     var list by rememberSaveable { mutableStateOf(LIST_MAIN) }
     val drawer = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val motion = LocalMotionSpec.current
     BackHandler(enabled = drawer.isOpen) { scope.launch { drawer.close() } }
     BackHandler(enabled = !drawer.isOpen && (tab != MainTab.Chats || list == LIST_ARCHIVE)) {
         if (list == LIST_ARCHIVE) list = LIST_MAIN else tab = MainTab.Chats
@@ -182,7 +185,7 @@ fun MainShell(graph: AppGraph, navigator: Navigator) {
                     if (index >= 0 && index != pager.targetPage) {
                         jumping = true
                         try {
-                            pager.animateScrollToPage(index, animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.9f, stiffness = 700f))
+                            pager.animateScrollToPage(index, animationSpec = motion.spatial)
                         } finally {
                             jumping = false
                         }
@@ -299,8 +302,16 @@ internal fun MainNavBar(style: NavBarStyle, tabs: List<MainTabItem>, selected: M
         }
     }
     when (style) {
-        NavBarStyle.Expressive -> CapsuleBar(
-            items = tabs.map { CapsuleItem(it.tab, it.selectedIcon, it.icon, it.label, it.badge) },
+        NavBarStyle.Expressive -> FloatingMorphingNavigationDock(
+            destinations = tabs.map { item ->
+                MorphNavDestination(
+                    key = item.tab,
+                    label = item.label,
+                    icon = item.icon,
+                    selectedIcon = item.selectedIcon,
+                    badge = item.badge,
+                )
+            },
             selected = selected,
             onSelect = onSelect,
             inset = inset.dp,
