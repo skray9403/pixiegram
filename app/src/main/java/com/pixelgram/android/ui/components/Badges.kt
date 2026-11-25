@@ -115,7 +115,7 @@ fun VerifiedBadge(size: Dp = 18.dp) {
         contentAlignment = Alignment.Center,
         modifier = Modifier.padding(start = 4.dp).size(size).clip(MaterialShapes.Cookie12Sided.toShape()).background(scheme.primary),
     ) {
-        Icon(Icons.Rounded.Check, contentDescription = null, tint = scheme.onPrimary, modifier = Modifier.size(size * LogoScale))
+        Icon(Icons.Rounded.Check, contentDescription = null, tint = scheme.onPrimary, modifier = Modifier.size(size * 0.62f))
     }
 }
 
