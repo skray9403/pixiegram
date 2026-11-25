@@ -68,20 +68,6 @@ import com.pixelgram.android.ui.components.segmentPosition
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 
-object NowPlayingPrefs {
-    private const val Prefs = "pixel_now_playing"
-    const val None = "none"
-    const val LastFm = "lastfm"
-    const val StatsFm = "statsfm"
-
-    fun service(context: android.content.Context): String = context.getSharedPreferences(Prefs, android.content.Context.MODE_PRIVATE).getString("service", None) ?: None
-    fun username(context: android.content.Context): String = context.getSharedPreferences(Prefs, android.content.Context.MODE_PRIVATE).getString("username", "").orEmpty()
-    fun apiKey(context: android.content.Context): String = context.getSharedPreferences(Prefs, android.content.Context.MODE_PRIVATE).getString("key", "").orEmpty()
-    fun save(context: android.content.Context, service: String, username: String, key: String) {
-        context.getSharedPreferences(Prefs, android.content.Context.MODE_PRIVATE).edit().putString("service", service).putString("username", username.trim()).putString("key", key.trim()).apply()
-    }
-}
-
 @Composable
 private fun FieldRow(value: String, onChange: (String) -> Unit, hint: String, position: SegmentPosition, max: Int, counter: Boolean = false) {
     val (index, count) = when (position) {
@@ -186,7 +172,6 @@ fun AccountEditorScreen(graph: AppGraph, navigator: Navigator) {
     }
     var editingUsername by remember { mutableStateOf(false) }
     var editingBirthday by remember { mutableStateOf(false) }
-    var nowPlaying by remember { mutableStateOf(false) }
     var personal by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
 
@@ -214,17 +199,10 @@ fun AccountEditorScreen(graph: AppGraph, navigator: Navigator) {
 
     Spacer(Modifier.height(8.dp))
     SettingsGroup {
-        val service = remember(nowPlaying) { NowPlayingPrefs.service(context) }
-        SettingsItem(
-            stringResource(R.string.account_scrobbling),
-            SegmentPosition.Top,
-            onClick = { nowPlaying = true },
-            trailing = { Text(serviceLabel(service), color = MaterialTheme.colorScheme.primary) },
-        )
         val personalId = full?.personalChatId ?: 0L
         SettingsItem(
             stringResource(R.string.account_personal_channel),
-            SegmentPosition.Middle,
+            SegmentPosition.Top,
             onClick = { personal = true },
             trailing = { Text(if (personalId != 0L) graph.store.chat(personalId)?.title.orEmpty() else stringResource(R.string.account_add), color = MaterialTheme.colorScheme.primary) },
         )
@@ -323,7 +301,6 @@ fun AccountEditorScreen(graph: AppGraph, navigator: Navigator) {
             },
         ) { androidx.compose.material3.DatePicker(state) }
     }
-    if (nowPlaying) NowPlayingDialog { nowPlaying = false }
     if (personal) {
         val chats by produceState(emptyList<TdApi.Chat>()) {
             value = runCatching { graph.td.send(TdApi.GetSuitablePersonalChats()).chatIds.toList() }.getOrDefault(emptyList()).mapNotNull { id -> runCatching { graph.td.send(TdApi.GetChat(id)) }.getOrNull() }
@@ -389,56 +366,3 @@ private fun formatBirth(b: TdApi.Birthdate): String {
     return if (b.year > 0) "$month ${b.day}, ${b.year}" else "$month ${b.day}"
 }
 
-@Composable
-private fun serviceLabel(service: String): String = when (service) {
-    NowPlayingPrefs.LastFm -> "Last.fm"
-    NowPlayingPrefs.StatsFm -> "Stats.fm"
-    else -> stringResource(R.string.privacy_off)
-}
-
-@Composable
-fun NowPlayingDialog(onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    var service by remember { mutableStateOf(NowPlayingPrefs.service(context)) }
-    var username by remember { mutableStateOf(NowPlayingPrefs.username(context)) }
-    var key by remember { mutableStateOf(NowPlayingPrefs.apiKey(context)) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.now_playing_title)) },
-        text = {
-            Column {
-                listOf(NowPlayingPrefs.None, NowPlayingPrefs.LastFm, NowPlayingPrefs.StatsFm).forEach { option ->
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().combinedClickable(interactionSource = null, indication = null) { service = option }) {
-                        RadioButton(service == option, { service = option })
-                        Text(serviceLabel(option))
-                    }
-                }
-                Text(stringResource(R.string.now_playing_about), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
-                if (service != NowPlayingPrefs.None) {
-                    OutlinedTextField(username, { username = it.take(43) }, label = { Text(stringResource(R.string.now_playing_username)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    if (service == NowPlayingPrefs.LastFm) {
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(key, { key = it.take(64) }, label = { Text(stringResource(R.string.now_playing_key)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                        Text(
-                            buildAnnotatedString {
-                                append(stringResource(R.string.now_playing_key_note) + " ")
-                                withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) { append("last.fm/api/account/create") }
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp).combinedClickable(interactionSource = null, indication = null) { com.pixelgram.android.nav.PendingNav.external = "https://www.last.fm/api/account/create" },
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                NowPlayingPrefs.save(context, service, username, key)
-                com.pixelgram.android.feature.profile.NowPlayingFeed.reset()
-                onDismiss()
-            }) { Text(stringResource(R.string.action_done)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
-}
