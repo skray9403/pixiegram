@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.key
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.foundation.layout.isImeVisible
@@ -2446,18 +2447,18 @@ private fun SendPhotosSheet(paths: List<String>, caption: String, onDismiss: () 
             val videos = selectedPaths.count { isVideoPath(it) }
             Text(
                 when {
-                    videos == 0 -> pluralStringResource(R.plurals.send_photos_title, selectedPaths.size, items.size)
-                    videos == items.size -> pluralStringResource(R.plurals.send_videos_title, items.size, items.size)
-                    else -> pluralStringResource(R.plurals.send_media_title, items.size, items.size)
+                    videos == 0 -> pluralStringResource(R.plurals.send_photos_title, selectedPaths.size, selectedPaths.size)
+                    videos == selectedPaths.size -> pluralStringResource(R.plurals.send_videos_title, selectedPaths.size, selectedPaths.size)
+                    else -> pluralStringResource(R.plurals.send_media_title, selectedPaths.size, selectedPaths.size)
                 },
                 style = MaterialTheme.typography.titleLargeEmphasized,
             )
             androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(items.size, key = { selectedPaths[it] }) { index ->
-                    val path = selectedPaths[index]
-                    Box(Modifier.size(if (items.size == 1) 260.dp else 160.dp).animateItem().clip(RoundedCornerShape(20.dp))) {
+                items(selectedPaths, key = { it }) { index ->
+                    val path = index
+                    Box(Modifier.size(if (selectedPaths.size == 1) 260.dp else 160.dp).animateItem().clip(RoundedCornerShape(20.dp))) {
                         AsyncImage(model = File(path), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
-                        if (items.size > 1) {
+                        if (selectedPaths.size > 1) {
                             Surface(
                                 onClick = { selectedPaths.remove(path) },
                                 shape = CircleShape,
@@ -2481,7 +2482,7 @@ private fun SendPhotosSheet(paths: List<String>, caption: String, onDismiss: () 
                 Spacer(Modifier.weight(1f))
                 FilledIconButton(
                     onClick = { if (selectedPaths.isNotEmpty()) onSend(selectedPaths.toList(), text) },
-                    enabled = items.isNotEmpty(),
+                    enabled = selectedPaths.isNotEmpty(),
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier.size(64.dp),
                 ) { Icon(Icons.AutoMirrored.Rounded.Send, stringResource(R.string.action_send), Modifier.size(28.dp)) }
