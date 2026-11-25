@@ -32,9 +32,6 @@
             android:name=".notify.KeepAliveService"
             android:exported="false"
             android:foregroundServiceType="remoteMessaging" />
-        <meta-data
-            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
-            android:value="com.pixelgram.android.music.CastOptionsProvider" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -102,15 +99,12 @@
                 android:resource="@xml/file_paths" />
         </provider>
         <service
-            android:name=".music.PlaybackService"
+            android:name=".audio.PlaybackService"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
-        <receiver
-            android:name="androidx.mediarouter.media.MediaTransferReceiver"
-            android:exported="true" />
     </application>
 </manifest>

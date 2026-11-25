@@ -710,8 +710,8 @@ fun ChatScreen(graph: AppGraph, chatId: Long, navigator: Navigator, topicId: Int
                                     onPlayAudio = { audio ->
                                         val all = ui.messages.reversed().mapNotNull { (it.content as? TdApi.MessageAudio)?.audio }
                                         val start = all.indexOfFirst { it.audio.id == audio.audio.id }.coerceAtLeast(0)
-                                        if (graph.music.state.value.track?.fileId == audio.audio.id) graph.music.toggle()
-                                        else graph.music.play(all.ifEmpty { listOf(audio) }, start, ui.title)
+                                        if (graph.audio.state.value.track?.fileId == audio.audio.id) graph.audio.toggle()
+                                        else graph.audio.play(all.ifEmpty { listOf(audio) }, start, ui.title)
                                     },
                                 )
                             }
@@ -1373,8 +1373,8 @@ internal fun MessageBubble(
 @OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun AudioRow(audio: TdApi.Audio, outgoing: Boolean, onPlay: () -> Unit) {
-    val music = com.pixelgram.android.LocalGraph.current.music
-    val state by music.state.collectAsState()
+    val music = com.pixelgram.android.LocalGraph.current.audio
+    val state by audioPlayer.state.collectAsState()
     val current = state.track?.fileId == audio.audio.id
     val playing = current && state.playing
     val scheme = MaterialTheme.colorScheme
@@ -1401,13 +1401,13 @@ private fun AudioRow(audio: TdApi.Audio, outgoing: Boolean, onPlay: () -> Unit) 
                 ),
                 modifier = Modifier.size(40.dp),
             ) {
-                com.pixelgram.android.feature.player.PlayPauseMorph(playing, 24.dp)
+                com.pixelgram.android.feature.chat.PlayPauseMorph(playing, 24.dp)
             }
         }
         Column(Modifier.weight(1f, fill = false)) {
             Text(audio.title.ifBlank { audio.fileName }, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             Text(
-                listOf(audio.performer, com.pixelgram.android.feature.player.formatTime(audio.duration * 1000L)).filter { it.isNotBlank() }.joinToString(" · "),
+                listOf(audio.performer, com.pixelgram.android.feature.chat.formatTime(audio.duration * 1000L)).filter { it.isNotBlank() }.joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
                 color = LocalContentColor.current.copy(alpha = 0.7f),
                 maxLines = 1,

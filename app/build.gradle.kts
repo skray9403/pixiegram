@@ -140,8 +140,6 @@ dependencies {
     implementation(libs.media3.session)
     implementation(libs.media3.ui.compose)
     implementation(libs.lottie.compose)
-    implementation(libs.cast.framework)
-    implementation(libs.mediarouter)
     implementation(libs.material)
     implementation(libs.emojipicker)
     debugImplementation(libs.androidx.compose.ui.tooling)

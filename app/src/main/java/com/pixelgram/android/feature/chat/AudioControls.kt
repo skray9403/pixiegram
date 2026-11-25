@@ -1,4 +1,4 @@
-package com.pixelgram.android.feature.player
+package com.pixelgram.android.feature.chat
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing

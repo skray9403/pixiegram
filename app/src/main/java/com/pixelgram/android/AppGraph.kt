@@ -13,10 +13,9 @@ class AppGraph(context: Context, offline: Boolean = false) {
     val td = TdClient(context.applicationContext, scope, offline)
     val hiddenChats = com.pixelgram.android.feature.security.TitanHiddenChats(context.applicationContext)
     val store = TdStore(td, scope, context.applicationContext, hiddenChats)
+    val audio = com.pixelgram.android.audio.ChatAudioPlayer(context.applicationContext, td)
     val appearance = AppearanceStore(context.applicationContext, scope)
     val auth = com.pixelgram.android.feature.auth.AuthController(td, scope)
-    val music = com.pixelgram.android.music.MusicPlayer(context.applicationContext, td)
-    val covers = com.pixelgram.android.music.CoverArt(context.applicationContext).also { music.covers = it }
     val notifier = com.pixelgram.android.notify.Notifier(context.applicationContext, td, store, scope)
 }
 

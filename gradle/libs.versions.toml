@@ -18,8 +18,6 @@ qrcodegen = "1.8.0"
 libphonenumber = "9.0.42"
 media3 = "1.11.1"
 lottie = "6.7.1"
-cast = "23.0.0"
-mediarouter = "1.8.1"
 phonecarrier = "2.42"
 annotation = "1.9.1"
 junit = "4.13.2"
@@ -60,8 +58,6 @@ media3-transformer = { module = "androidx.media3:media3-transformer", version.re
 media3-effect = { module = "androidx.media3:media3-effect", version.ref = "media3" }
 media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
 lottie-compose = { module = "com.airbnb.android:lottie-compose", version.ref = "lottie" }
-cast-framework = { module = "com.google.android.gms:play-services-cast-framework", version.ref = "cast" }
-mediarouter = { module = "androidx.mediarouter:mediarouter", version.ref = "mediarouter" }
 media3-ui-compose = { module = "androidx.media3:media3-ui-compose", version.ref = "media3" }
 phonecarrier = { module = "com.googlecode.libphonenumber:carrier", version.ref = "phonecarrier" }
 emojipicker = { group = "androidx.emoji2", name = "emoji2-emojipicker", version.ref = "emojipicker" }
