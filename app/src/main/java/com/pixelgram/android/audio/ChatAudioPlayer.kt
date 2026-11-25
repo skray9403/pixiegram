@@ -14,6 +14,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 import com.pixelgram.android.td.TdClient
@@ -33,6 +36,7 @@ class ChatAudioPlayer(context: Context, private val td: TdClient) {
     private val app = context.applicationContext
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val stateFlow = MutableStateFlow(ChatAudioState())
+    private var progressJob: Job? = null
     val state: StateFlow<ChatAudioState> = stateFlow.asStateFlow()
 
     val player: ExoPlayer by lazy {
@@ -47,10 +51,24 @@ class ChatAudioPlayer(context: Context, private val td: TdClient) {
                 exo.addListener(object : Player.Listener {
                     override fun onIsPlayingChanged(isPlaying: Boolean) {
                         stateFlow.value = stateFlow.value.copy(playing = isPlaying)
+                        progressJob?.cancel()
+                        if (isPlaying) {
+                            progressJob = scope.launch {
+                                while (isActive) {
+                                    stateFlow.value = stateFlow.value.copy(
+                                        position = exo.currentPosition,
+                                        duration = exo.duration.takeIf { it > 0 } ?: stateFlow.value.duration,
+                                        playing = exo.isPlaying,
+                                    )
+                                    delay(200)
+                                }
+                            }
+                        }
                     }
                     override fun onPlaybackStateChanged(playbackState: Int) {
                         stateFlow.value = stateFlow.value.copy(
                             loading = playbackState == Player.STATE_BUFFERING,
+                            position = exo.currentPosition,
                             duration = exo.duration.takeIf { it > 0 } ?: stateFlow.value.duration,
                             playing = exo.isPlaying,
                         )
@@ -88,6 +106,7 @@ class ChatAudioPlayer(context: Context, private val td: TdClient) {
     }
 
     fun stop() {
+        progressJob?.cancel()
         player.stop()
         player.clearMediaItems()
         stateFlow.value = ChatAudioState()
