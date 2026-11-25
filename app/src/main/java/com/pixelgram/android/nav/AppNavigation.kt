@@ -173,7 +173,6 @@ fun AppNavigation(graph: AppGraph, start: List<NavKey> = listOf(MainKey)) {
         },
     )
     }
-    com.pixelgram.android.feature.stories.StoryOverlays(graph)
     com.pixelgram.android.feature.chat.GiftSheetHost()
     com.pixelgram.android.feature.chat.TagSheetHost()
     InviteJoinHost(graph, navigator)

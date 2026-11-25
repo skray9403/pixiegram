@@ -123,7 +123,7 @@ internal fun RichContent(
         is TdApi.MessageDice -> DiceView(c.emoji, c.value, content)
         is TdApi.MessageGame -> InfoCard(Icons.Rounded.SportsEsports, c.game.title, c.game.description, content)
         is TdApi.MessageInvoice -> InfoCard(Icons.Rounded.ShoppingBag, c.productInfo.title, (if (c.currency == "XTR") "⭐ ${c.totalAmount}" else price(c.totalAmount, c.currency)) + " · " + c.productInfo.description.text, content, onClick = if (c.receiptMessageId == 0L) onPay else null)
-        is TdApi.MessageStory -> StoryCard(c, content)
+        is TdApi.MessageStory -> InfoCard(Icons.Rounded.AutoStories, stringResource(R.string.content_story), null, content)
         is TdApi.MessageCall -> CallRow(c, message.outgoing, content)
         is TdApi.MessageGift, is TdApi.MessageUpgradedGift -> InfoCard(Icons.Rounded.CardGiftcard, "Gift", null, content)
         is TdApi.MessageChecklist -> ChecklistView(c.list, content)
@@ -638,13 +638,6 @@ private fun DiceView(emoji: String, value: Int, content: Color) {
     Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(emoji, fontSize = 64.sp)
         if (value > 0) Text(value.toString(), style = MaterialTheme.typography.titleLarge, color = content)
-    }
-}
-
-@Composable
-private fun StoryCard(story: TdApi.MessageStory, content: Color) {
-    InfoCard(Icons.Rounded.AutoStories, stringResource(R.string.content_story), stringResource(R.string.content_story_open), content) {
-        com.pixelgram.android.feature.stories.StoryViewer.open(story.storyPosterChatId, listOf(story.storyPosterChatId))
     }
 }
 

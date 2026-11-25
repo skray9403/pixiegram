@@ -176,14 +176,7 @@ fun ChatsTab(
         val index = tabs.indexOfFirst { it.id == folder }
         if (index >= 0 && index != pager.settledPage && !pager.isScrollInProgress) pager.scrollToPage(index)
     }
-    LaunchedEffect(archive) {
-        runCatching { graph.td.send(TdApi.LoadActiveStories(if (archive) TdApi.StoryListArchive() else TdApi.StoryListMain())) }
-    }
     val density = androidx.compose.ui.platform.LocalDensity.current
-    val storyOwners = snapshot.stories.filter { it.archived == archive }
-    val storyHeight = with(density) { StoryRowHeight.toPx() }
-    val stories = remember { StoryPull(scope, storyHeight) }
-    stories.hasStories = storyOwners.isNotEmpty()
     val tracker = remember { HideOnScroll(with(density) { HideDistance.toPx() }, with(density) { ShowDistance.toPx() }) }
     var newMessage by remember { mutableStateOf(false) }
     var hiddenChatsOpen by remember { mutableStateOf(false) }
@@ -210,9 +203,6 @@ fun ChatsTab(
                 animationSpec = motion.micro,
                 label = "chat_fab_scale",
             )
-            var pencil by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-            var frame by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-            val gap = with(density) { CameraGap.roundToPx() }
             Box(
                 contentAlignment = Alignment.BottomEnd,
                 modifier = Modifier
@@ -220,12 +210,12 @@ fun ChatsTab(
                         bottom = (com.pixelgram.android.ui.components.LocalBottomBarPadding.current -
                             androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() - FabLift).coerceAtLeast(0.dp),
                     )
-                    .onGloballyPositioned { if (!fabMenu) frame = it.boundsInRoot() },
+                    ,
             ) {
                 androidx.compose.material3.FloatingActionButtonMenu(
                     expanded = fabMenu,
                     horizontalAlignment = Alignment.End,
-                    modifier = Modifier.padding(top = CameraSize + CameraGap).animateFloatingActionButton(visible, Alignment.BottomEnd),
+                    modifier = Modifier.animateFloatingActionButton(visible, Alignment.BottomEnd),
                     button = {
                         androidx.compose.material3.ToggleFloatingActionButton(
                             checked = fabMenu,
@@ -235,7 +225,6 @@ fun ChatsTab(
                                 height = 56.dp,
                             ),
                             modifier = Modifier
-                                .onGloballyPositioned { if (!fabMenu) pencil = it.boundsInRoot() }
                                 .graphicsLayer {
                                     scaleX = fabScale
                                     scaleY = fabScale
@@ -281,26 +270,7 @@ fun ChatsTab(
                         )
                     }
                 }
-                val anchor = pencil
-                val box = frame
-                androidx.compose.material3.SmallFloatingActionButton(
-                    onClick = { com.pixelgram.android.feature.stories.StoryComposer.open = true },
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .layout { measurable, constraints ->
-                            val placeable = measurable.measure(constraints)
-                            layout(placeable.width, placeable.height) {
-                                if (anchor != null && box != null) {
-                                    val x = placeable.width / 2f - (box.right - anchor.center.x)
-                                    val y = -(box.bottom - anchor.top) - gap
-                                    placeable.place(x.toInt(), y.toInt())
-                                }
-                            }
-                        }
-                        .animateFloatingActionButton(visible && !fabCollapsed && !fabMenu && anchor != null && box != null, Alignment.Center),
-                ) { Icon(Icons.Rounded.PhotoCamera, stringResource(R.string.stories_new)) }
+
             }
         },
         topBar = {
@@ -332,20 +302,7 @@ fun ChatsTab(
                             style = MaterialTheme.typography.titleLargeEmphasized,
                         )
                         }
-                        if (storyOwners.isNotEmpty()) {
-                            com.pixelgram.android.feature.stories.StoryStack(
-                                graph,
-                                storyOwners,
-                                Modifier
-                                    .padding(start = 10.dp)
-                                    .graphicsLayer {
-                                        val hidden = (stories.progress * 2f).coerceIn(0f, 1f)
-                                        alpha = 1f - hidden
-                                        scaleX = 1f - hidden * 0.4f
-                                        scaleY = 1f - hidden * 0.4f
-                                    },
-                            ) { stories.expand() }
-                        }
+
                         }
                     },
                     actions = {
@@ -365,27 +322,6 @@ fun ChatsTab(
                         }
                     },
                 )
-                if (storyOwners.isNotEmpty() || !archive) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(with(density) { (storyHeight * stories.progress).toDp() })
-                            .graphicsLayer {
-                                clip = true
-                                alpha = stories.progress
-                            },
-                    ) {
-                        com.pixelgram.android.feature.stories.StoriesRow(
-                            graph,
-                            storyOwners,
-                            Modifier.requiredHeight(StoryRowHeight).align(Alignment.BottomStart).graphicsLayer {
-                                val scale = 0.7f + 0.3f * stories.progress.coerceAtMost(1f)
-                                scaleX = scale
-                                scaleY = scale
-                            },
-                        )
-                    }
-                }
                 if (tabs.size > 1) {
                     FolderChips(
                         tabs,
@@ -414,7 +350,7 @@ fun ChatsTab(
             key = { tabs.getOrNull(it)?.id ?: -1 },
             beyondViewportPageCount = 0,
             userScrollEnabled = !ChatSelection.active && !ChatSelection.drawer,
-            modifier = Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).nestedScroll(stories).nestedScroll(tracker),
+            modifier = Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).nestedScroll(tracker),
         ) { page ->
             val id = tabs.getOrNull(page)?.id ?: 0
             val key = when {
@@ -425,7 +361,7 @@ fun ChatsTab(
             }
             val archived = if (key == LIST_MAIN && appearance.archivePull) snapshot.lists[LIST_ARCHIVE].orEmpty() else emptyList()
             val pageRows = if (id < 0 && !archive) remember(mainRows, id) { virtualRows(mainRows, id) } else snapshot.lists[key].orEmpty()
-            ChatListPage(graph, navigator, key, pageRows, if (page == pager.currentPage) scrollTop else 0, archived, onOpenArchive, stories.takeIf { page == pager.currentPage })
+            ChatListPage(graph, navigator, key, pageRows, if (page == pager.currentPage) scrollTop else 0, archived, onOpenArchive)
         }
     }
 }
@@ -438,7 +374,7 @@ private fun virtualRows(rows: List<ChatRow>, id: Int): List<ChatRow> = when (id)
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun ChatListPage(graph: AppGraph, navigator: Navigator, listKey: String, rows: List<ChatRow>, scrollTop: Int = 0, archived: List<ChatRow> = emptyList(), onOpenArchive: () -> Unit = {}, stories: StoryPull? = null) {
+private fun ChatListPage(graph: AppGraph, navigator: Navigator, listKey: String, rows: List<ChatRow>, scrollTop: Int = 0, archived: List<ChatRow> = emptyList(), onOpenArchive: () -> Unit = {}) {
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     val selection = remember(listKey) { androidx.compose.runtime.mutableStateListOf<Long>() }
     val selecting = selection.isNotEmpty()
@@ -464,17 +400,6 @@ private fun ChatListPage(graph: AppGraph, navigator: Navigator, listKey: String,
             androidx.compose.runtime.snapshotFlow { listState.firstVisibleItemIndex }.collect { index -> if (index >= 1) archiveShown = false }
         }
     }
-    if (stories != null) androidx.compose.runtime.SideEffect {
-        stories.atTop = { listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0 }
-        stories.archivePulling = { pull > 0f || (archiveShown && listState.firstVisibleItemIndex == 0) }
-    }
-    val storiesRef = androidx.compose.runtime.rememberUpdatedState(stories)
-    if (stories != null) androidx.compose.runtime.DisposableEffect(stories) {
-        onDispose {
-            stories.atTop = { false }
-            stories.archivePulling = { false }
-        }
-    }
     val pullScope = rememberCoroutineScope()
     val pullConnection = remember(hasArchive, hintPx) {
         object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
@@ -490,8 +415,6 @@ private fun ChatListPage(graph: AppGraph, navigator: Navigator, listKey: String,
                 }
                 if (available.y > 0f) {
                     if (!atTop()) return androidx.compose.ui.geometry.Offset.Zero
-                    val story = storiesRef.value
-                    if (story != null && story.hasStories && story.progress < 0.99f) return available
                     settle?.cancel()
                     if (pullStart == 0L) pullStart = System.currentTimeMillis()
                     val k = (pull / hintPx).coerceIn(0f, 1f)
@@ -1065,66 +988,6 @@ private fun SheetItem(icon: androidx.compose.ui.graphics.vector.ImageVector, lab
     )
 }
 
-private class StoryPull(private val scope: kotlinx.coroutines.CoroutineScope, private val height: Float) : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
-    private val anim = androidx.compose.animation.core.Animatable(0f)
-    val progress: Float get() = anim.value
-    var hasStories = false
-    var atTop: () -> Boolean = { false }
-    var archivePulling: () -> Boolean = { false }
-
-    fun expand() {
-        scope.launch { anim.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.75f, stiffness = 380f)) }
-    }
-
-    override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
-        if (archivePulling()) return androidx.compose.ui.geometry.Offset.Zero
-        if (available.y < 0f && anim.value > 0f) {
-            val delta = available.y / height
-            val next = (anim.value + delta).coerceAtLeast(0f)
-            val used = (next - anim.value) * height
-            scope.launch { anim.snapTo(next) }
-            return androidx.compose.ui.geometry.Offset(0f, used)
-        }
-        if (available.y > 0f && hasStories && anim.value < 1f && source == androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput && atTop()) {
-            val next = (anim.value + available.y / height).coerceAtMost(1f)
-            val used = (next - anim.value) * height
-            scope.launch { anim.snapTo(next) }
-            return androidx.compose.ui.geometry.Offset(0f, used)
-        }
-        return androidx.compose.ui.geometry.Offset.Zero
-    }
-
-    override fun onPostScroll(consumed: androidx.compose.ui.geometry.Offset, available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
-        if (available.y > 0f && hasStories && !archivePulling() && atTop() && source == androidx.compose.ui.input.nestedscroll.NestedScrollSource.UserInput) {
-            val resist = if (anim.value >= 1f) 0.25f else 1f
-            val next = (anim.value + available.y * resist / height).coerceAtMost(OverPull)
-            scope.launch { anim.snapTo(next) }
-            return available
-        }
-        return androidx.compose.ui.geometry.Offset.Zero
-    }
-
-    override suspend fun onPreFling(available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
-        val value = anim.value
-        if (value <= 0f || archivePulling()) return androidx.compose.ui.unit.Velocity.Zero
-        val target = when {
-            available.y < -FlingSwitch -> 0f
-            available.y > FlingSwitch -> 1f
-            value > 0.5f -> 1f
-            else -> 0f
-        }
-        if (value != target) {
-            anim.animateTo(target, androidx.compose.animation.core.spring(dampingRatio = 0.75f, stiffness = 380f))
-            return if (target == 0f || available.y > 0f) available else androidx.compose.ui.unit.Velocity.Zero
-        }
-        return androidx.compose.ui.unit.Velocity.Zero
-    }
-}
-
-private val StoryRowHeight = 104.dp
-private const val OverPull = 1.15f
-private const val FlingSwitch = 600f
-
 private class HideOnScroll(private val hideAt: Float, private val showAt: Float) : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
     var hidden by mutableStateOf(false)
     private var distance = 0f
@@ -1153,8 +1016,6 @@ private class HideOnScroll(private val hideAt: Float, private val showAt: Float)
 private val HideDistance = com.pixelgram.android.ui.theme.MotionTokens.FabCollapseScrollThreshold
 private val PencilSize = 52.dp
 private val PencilOpenSize = 56.dp
-private val CameraSize = 40.dp
-private val CameraGap = 12.dp
 private val FabLift = 12.dp
 private val ShowDistance = 24.dp
 
