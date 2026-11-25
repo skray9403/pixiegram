@@ -30,7 +30,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.KeyStore
-import java.security.MessageDigest
+import javax.crypto.Mac
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -166,12 +166,25 @@ class TitanHiddenChats(context: Context) {
         return if (Build.VERSION.SDK_INT >= 28) runCatching { generate(true) }.getOrElse { generate(false) } else generate(false)
     }
 
-    private fun hashId(id: Long) = MessageDigest.getInstance("SHA-256")
-        .digest(id.toString().toByteArray()).joinToString("") { "%02x".format(it) }
+    private fun hashId(id: Long): String {
+        val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+        val key = (store.getKey(KEY_INDEX_ALIAS, null) as? SecretKey) ?: KeyGenerator.getInstance("HmacSHA256", "AndroidKeyStore").run {
+            init(KeyGenParameterSpec.Builder(KEY_INDEX_ALIAS, KeyProperties.PURPOSE_SIGN)
+                .setDigests(KeyProperties.DIGEST_SHA256)
+                .setUserAuthenticationRequired(false)
+                .build())
+            generateKey()
+        }
+        return Base64.encodeToString(
+            Mac.getInstance("HmacSHA256").run { init(key); doFinal(id.toString().toByteArray()) },
+            Base64.NO_WRAP,
+        )
+    }
 
     private data class HiddenConfig(val mode: HiddenChatMode, val ids: Set<Long>)
     private companion object {
         const val KEY_ALIAS = "pixelgram_titan_hidden_chats_v1"
+        const val KEY_INDEX_ALIAS = "pixelgram_titan_hidden_chats_index_v1"
         const val KEY_IV = "iv"
         const val KEY_CIPHERTEXT = "ciphertext"
         const val KEY_MODE = "mode"

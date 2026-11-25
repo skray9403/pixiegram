@@ -281,9 +281,16 @@ class TdStore(
         val allSorted = lists.mapValues { (_, rows) -> rows.sortedByDescending { it.order } }
         val sorted = allSorted.mapValues { (_, rows) -> rows.filter { hiddenChats?.isVisible(it.id) != false } }
         val allChats = allSorted.values.flatten().distinctBy { it.id }.sortedByDescending { it.order }
-        val visibleUnread = sorted.mapValues { (_, rows) ->
-            UnreadInfo(rows.count { it.unread > 0 }, rows.count { it.unread > 0 && !it.muted })
-        } + unread.filterKeys { it !in sorted.keys }
+        val visibleUnread = (unread.keys + allSorted.keys).associateWith { key ->
+            val total = unread[key] ?: allSorted[key].orEmpty().let { rows ->
+                UnreadInfo(rows.count { it.unread > 0 }, rows.count { it.unread > 0 && !it.muted })
+            }
+            val hiddenUnread = allSorted[key].orEmpty().filter { hiddenChats?.isVisible(it.id) == false && it.unread > 0 }
+            UnreadInfo(
+                (total.chats - hiddenUnread.size).coerceAtLeast(0),
+                (total.unmuted - hiddenUnread.count { !it.muted }).coerceAtLeast(0),
+            )
+        }
         val userInfo = users.mapValues { (id, user) ->
             val info = user.info()
             val name = localName(id)
