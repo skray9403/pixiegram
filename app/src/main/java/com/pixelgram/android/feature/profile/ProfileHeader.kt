@@ -44,12 +44,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.pixelgram.android.AppGraph
 import com.pixelgram.android.ui.components.Avatar
 import com.pixelgram.android.ui.components.NameBadges
@@ -81,14 +79,9 @@ fun ProfileHeader(
     onTitleClick: (() -> Unit)? = null,
     subtitleLeading: (@Composable () -> Unit)? = null,
     belowSubtitle: (@Composable () -> Unit)? = null,
-    orbit: List<org.drinkless.tdlib.TdApi.UpgradedGift> = emptyList(),
 ) {
     val snapshot by graph.store.snapshot.collectAsState()
-    val banners by graph.remote.banners.collectAsState()
-    LaunchedEffect(userId) { graph.remote.want(userId) }
-    val banner = banners[userId]
     val surface = MaterialTheme.colorScheme.surface
-    val shown by animateFloatAsState(if (banner != null) 1f else 0f, MaterialTheme.motionScheme.slowEffectsSpec(), label = "banner")
     val density = androidx.compose.ui.platform.LocalDensity.current
     val statusTop = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
     var infoHeight by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0.dp) }
@@ -108,7 +101,7 @@ fun ProfileHeader(
             val colorId = profileUser?.profileAccentColorId ?: profileChat?.profileAccentColorId ?: -1
             val patternId = profileUser?.profileEmojiId ?: profileChat?.profileBackgroundCustomEmojiId ?: 0L
             val profileColors = if (colorId >= 0) com.pixelgram.android.td.ProfileAccentColors.background(colorId, dark) else null
-            if (banner == null && (profileColors != null || patternId != 0L)) {
+            if (profileColors != null || patternId != 0L) {
                 val center = avatarTop + AvatarSize / 2
                 Box(Modifier.fillMaxWidth().height(avatarTop + AvatarSize + 14.dp + infoHeight + 24.dp).graphicsLayer { alpha = 1f - e }) {
                     if (profileColors != null) {
@@ -140,12 +133,7 @@ fun ProfileHeader(
                     }
                 }
             }
-            if (banner != null) {
-                Box(Modifier.fillMaxWidth().aspectRatio(BannerRatio).graphicsLayer { alpha = shown * (1f - e) }) {
-                    AsyncImage(model = banner, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
-                    Box(Modifier.matchParentSize().background(Brush.verticalGradient(0.35f to Color.Transparent, 1f to surface)))
-                }
-            }
+
             if (e > 0f) {
                 androidx.compose.runtime.CompositionLocalProvider(com.pixelgram.android.ui.theme.LocalAvatarShape provides RoundedCornerShape((AvatarSize / 2) * (1f - e))) {
                     Box(Modifier.align(Alignment.TopCenter).offset(y = top).graphicsLayer { alpha = (e * 2.5f).coerceAtMost(1f) }) {
@@ -190,51 +178,7 @@ fun ProfileHeader(
                     }
                 }
             }
-            if (orbit.isNotEmpty() && e < 0.4f) {
-                val box = maxOf(AvatarSize, 96.dp)
-                val acx = full / 2
-                val ay = avatarTop - (box - AvatarSize) / 2
-                val acy = ay + box / 2
-                val spots = listOf(
-                    (acx * 2f / 3f - 6.dp) to (ay - 4.dp),
-                    (acx * 4f / 3f + 12.dp) to (ay - 4.dp),
-                    (acx / 2f - 20.dp) to (acy - 13.dp),
-                    (acx * 1.5f + 20.dp) to (acy - 13.dp),
-                    (acx * 2f / 3f - 12.dp) to (ay + box - 16.dp),
-                    (acx * 4f / 3f + 12.dp) to (ay + box - 16.dp),
-                )
-                val appear by androidx.compose.animation.core.animateFloatAsState(1f - e * 2.5f, label = "orbit")
-                orbit.take(6).forEachIndexed { i, gift ->
-                    val (cx, cy) = spots[i]
-                    val glow = gift.backdrop?.colors?.let { com.pixelgram.android.feature.chat.giftColor(it.centerColor) } ?: MaterialTheme.colorScheme.primary
-                    val enter = remember { androidx.compose.animation.core.Animatable(0f) }
-                    LaunchedEffect(gift.name) {
-                        kotlinx.coroutines.delay(i * 60L)
-                        enter.animateTo(1f, androidx.compose.animation.core.spring(0.55f, 300f))
-                    }
-                    Box(
-                        Modifier
-                            .align(Alignment.TopStart)
-                            .offset(x = cx - 22.5.dp, y = cy - 22.5.dp)
-                            .size(45.dp)
-                            .graphicsLayer {
-                                val v = enter.value * appear.coerceIn(0f, 1f)
-                                alpha = v.coerceIn(0f, 1f)
-                                val sc = 0.5f + 0.5f * v
-                                scaleX = sc
-                                scaleY = sc
-                            }
-                            .background(Brush.radialGradient(listOf(glow, glow.copy(alpha = 0f))), androidx.compose.foundation.shape.CircleShape)
-                            .clip(androidx.compose.foundation.shape.CircleShape)
-                            .clickable { com.pixelgram.android.feature.chat.GiftSheets.current = com.pixelgram.android.feature.chat.GiftTarget.Unique(gift.name) },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        gift.model?.sticker?.let { sticker ->
-                            com.pixelgram.android.feature.chat.StickerView(sticker, snapshot.files, { graph.store.requestFileAsync(it) }, Modifier.size(24.dp), video = false)
-                        }
-                    }
-                }
-            }
+
             if (e > 0f) {
                 Box(
                     Modifier.align(Alignment.TopCenter).offset(y = top).size(size).graphicsLayer { alpha = e }.background(
@@ -320,7 +264,6 @@ fun ProfileHeader(
 }
 
 private val AvatarSize = 120.dp
-private const val BannerRatio = 3f
 
 @Composable
 fun rememberAvatarPicker(graph: AppGraph): () -> Unit {

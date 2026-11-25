@@ -406,7 +406,6 @@ fun ChatsTab(
                 ) {
                     androidx.compose.material3.LinearWavyProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp))
                 }
-                com.pixelgram.android.ui.components.MiniPlayer()
             }
         },
     ) { padding ->

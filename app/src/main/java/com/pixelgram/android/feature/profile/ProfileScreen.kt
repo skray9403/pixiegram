@@ -312,13 +312,6 @@ fun ProfileScreen(graph: AppGraph, userId: Long, chatId: Long, navigator: Naviga
             val status = user?.let { com.pixelgram.android.ui.components.statusLine(it) } ?: channelSubtitle
             val serverName = if (userId != 0L) graph.store.originalName(userId) ?: (if (graph.store.localName(userId) != null) graph.store.rawName(userId) else null) else null
             var showServerName by remember(userId) { mutableStateOf(false) }
-            val orbitGifts by androidx.compose.runtime.produceState(emptyList<TdApi.UpgradedGift>(), userId) {
-                if (userId == 0L) return@produceState
-                value = runCatching {
-                    graph.td.send(TdApi.GetReceivedGifts("", TdApi.MessageSenderUser(userId), 0, false, false, false, false, false, false, false, false, false, "", 20)).gifts
-                        .filter { it.isPinned }.mapNotNull { (it.gift as? TdApi.SentGiftUpgraded)?.gift }.take(6)
-                }.getOrDefault(emptyList())
-            }
             ProfileHeader(
                 graph = graph,
                 userId = if (userId != 0L) userId else chatId,
@@ -326,7 +319,6 @@ fun ProfileScreen(graph: AppGraph, userId: Long, chatId: Long, navigator: Naviga
                 onTitleClick = serverName?.takeIf { it != title }?.let { { showServerName = !showServerName } },
                 subtitleLeading = full?.rating?.takeIf { !self || it.level > 0 }?.let { r -> { LevelBadge(r.level) { ratingOpen = true } } },
                 belowSubtitle = full?.tonWalletCard?.let { card -> { BalanceChip(card, title, self) } },
-                orbit = orbitGifts,
                 subtitle = status,
                 photoFileId = user?.bigPhotoFileId ?: chat?.photo?.big?.id ?: 0,
                 minithumb = user?.minithumb ?: chat?.photo?.minithumbnail?.data,
@@ -473,37 +465,6 @@ fun ProfileScreen(graph: AppGraph, userId: Long, chatId: Long, navigator: Naviga
             full?.rating?.takeIf { !self || it.level > 0 }?.let { rating ->
                 if (ratingOpen) RatingSheet(rating, user?.firstName.orEmpty()) { ratingOpen = false }
             }
-            val npContext = LocalContext.current
-            val badgeMap by graph.remote.badges.collectAsState()
-            val supporter = self && (snapshot.meId in badgeMap || snapshot.meId in com.pixelgram.android.pixel.PixelRemote.BadgeOwners)
-            val scrobbled by androidx.compose.runtime.produceState<NowPlayingTrack?>(null, supporter) {
-                if (!supporter) return@produceState
-                while (true) {
-                    value = NowPlayingFeed.current(npContext)
-                    kotlinx.coroutines.delay(30_000)
-                }
-            }
-            scrobbled?.let { track ->
-                Spacer(Modifier.height(16.dp))
-                NowPlayingCard(track) { com.pixelgram.android.nav.PendingNav.external = track.profileUrl }
-            }
-            if (scrobbled == null) full?.firstProfileAudio?.let { audio ->
-                Spacer(Modifier.height(16.dp))
-                val playlist = stringResource(R.string.player_playlist_of, playlistName(user))
-                ProfileMusicCard(audio) {
-                    com.pixelgram.android.feature.player.FullPlayer.view = com.pixelgram.android.feature.player.PlayerView.Queue
-                    val current = graph.music.state.value
-                    if (current.source == playlist && current.track != null) {
-                        com.pixelgram.android.feature.player.FullPlayer.open = true
-                    } else {
-                        scope.launch {
-                            val all = runCatching { graph.td.send(TdApi.GetUserProfileAudios(userId, 0, 100)).audios.toList() }.getOrNull()
-                            graph.music.play(all?.takeIf { it.isNotEmpty() } ?: listOf(audio), 0, playlist)
-                            com.pixelgram.android.feature.player.FullPlayer.open = true
-                        }
-                    }
-                }
-            }
             val phone = user?.phone.orEmpty()
             val showDetails = appearance.phoneDetails && !self && phone.isNotBlank()
             val phoneDetails by produceState<String?>(null, phone, showDetails) {
@@ -646,82 +607,6 @@ private fun RowScope.MuteAction(graph: AppGraph, chatId: Long, initiallyMuted: B
     }
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun ProfileMusicCard(audio: TdApi.Audio, onClick: () -> Unit) {
-    val graph = com.pixelgram.android.LocalGraph.current
-    val snapshot by graph.store.snapshot.collectAsState()
-    val covers by graph.covers.found.collectAsState()
-    val coverId = audio.albumCoverThumbnail?.file?.id ?: audio.externalAlbumCovers?.maxByOrNull { it.width }?.file?.id ?: 0
-    LaunchedEffect(coverId) { if (coverId != 0) graph.store.requestFileAsync(coverId) }
-    val path = snapshot.files[coverId] ?: graph.covers.key(audio)?.let { covers[it] }
-    val cover: Any? = path?.let { java.io.File(it) } ?: audio.albumCoverMinithumbnail?.data
-    val dark = com.pixelgram.android.ui.theme.LocalDarkTheme.current
-    val scheme by androidx.compose.runtime.produceState<androidx.compose.material3.ColorScheme?>(null, path, dark) {
-        value = path?.let {
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                runCatching { com.pixelgram.android.feature.player.coverPalette(it) }.getOrNull()
-                    ?.let { palette -> (palette.getOrNull(3) ?: palette.firstOrNull())?.let { seed -> com.pixelgram.android.feature.player.schemeFromSeed(seed.toArgb(), dark) } }
-            }
-        }
-    }
-    val container by androidx.compose.animation.animateColorAsState(scheme?.primaryContainer ?: MaterialTheme.colorScheme.primaryContainer, label = "card")
-    val content by androidx.compose.animation.animateColorAsState(scheme?.onPrimaryContainer ?: MaterialTheme.colorScheme.onPrimaryContainer, label = "card-content")
-    val music by graph.music.state.collectAsState()
-    val current = music.track?.fileId == audio.audio.id
-    val playing = current && music.playing
-    androidx.compose.material3.Surface(
-        onClick = onClick,
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
-        color = container,
-        contentColor = content,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-    ) {
-        Box {
-            if (cover != null) {
-                coil.compose.AsyncImage(
-                    model = cover,
-                    contentDescription = null,
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                    modifier = Modifier.matchParentSize().graphicsLayer { alpha = 0.22f }.then(if (android.os.Build.VERSION.SDK_INT >= 31) Modifier.blur(28.dp) else Modifier),
-                )
-            }
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Box(
-                        Modifier.size(72.dp).clip(androidx.compose.material3.MaterialShapes.Cookie9Sided.toShape()).background(content.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Rounded.MusicNote, null, tint = content)
-                        if (cover != null) coil.compose.AsyncImage(model = cover, contentDescription = null, contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.matchParentSize())
-                    }
-                    Column(Modifier.weight(1f)) {
-                        Text(audio.title.ifBlank { audio.fileName }, style = MaterialTheme.typography.titleMediumEmphasized, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                        if (audio.performer.isNotBlank()) Text(audio.performer, style = MaterialTheme.typography.bodyMedium, color = content.copy(alpha = 0.8f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                    }
-                    androidx.compose.material3.FilledIconButton(
-                        onClick = {
-                            if (current) graph.music.toggle() else onClick()
-                        },
-                        shapes = androidx.compose.material3.IconButtonDefaults.shapes(),
-                        colors = androidx.compose.material3.IconButtonDefaults.filledIconButtonColors(containerColor = content, contentColor = container),
-                        modifier = Modifier.size(52.dp),
-                    ) { com.pixelgram.android.feature.player.PlayPauseMorph(playing, 26.dp) }
-                }
-                if (current && music.duration > 0) {
-                    androidx.compose.material3.LinearWavyProgressIndicator(
-                        progress = { (music.position.toFloat() / music.duration).coerceIn(0f, 1f) },
-                        color = content,
-                        trackColor = content.copy(alpha = 0.2f),
-                        amplitude = { if (playing) 1f else 0f },
-                        waveSpeed = if (playing) androidx.compose.material3.WavyProgressIndicatorDefaults.LinearDeterminateWavelength else 0.dp,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
-        }
-    }
-}
 
 internal fun playlistName(user: com.pixelgram.android.td.UserInfo?): String {
     if (user == null) return ""

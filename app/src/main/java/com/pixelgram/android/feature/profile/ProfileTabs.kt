@@ -67,11 +67,8 @@ import org.drinkless.tdlib.TdApi
 
 private enum class ProfileTab(val title: Int) {
     Members(R.string.profile_tab_members),
-    Posts(R.string.profile_tab_posts),
-    Gifts(R.string.profile_tab_gifts),
     Media(R.string.profile_tab_media),
     Files(R.string.profile_tab_files),
-    Music(R.string.profile_tab_music),
     Voice(R.string.profile_tab_voice),
     Links(R.string.profile_tab_links),
     Groups(R.string.profile_tab_groups),
@@ -80,7 +77,6 @@ private enum class ProfileTab(val title: Int) {
 private fun ProfileTab.filter(): TdApi.SearchMessagesFilter? = when (this) {
     ProfileTab.Media -> TdApi.SearchMessagesFilterPhotoAndVideo()
     ProfileTab.Files -> TdApi.SearchMessagesFilterDocument()
-    ProfileTab.Music -> TdApi.SearchMessagesFilterAudio()
     ProfileTab.Voice -> TdApi.SearchMessagesFilterVoiceNote()
     ProfileTab.Links -> TdApi.SearchMessagesFilterUrl()
     else -> null
@@ -97,8 +93,6 @@ fun ProfileTabs(graph: AppGraph, navigator: Navigator, userId: Long, chatId: Lon
                 async {
                     val present = when (tab) {
                         ProfileTab.Members -> supergroupId != 0L && !isChannel
-                        ProfileTab.Posts -> runCatching { graph.td.send(TdApi.GetChatPostedToChatPageStories(if (userId != 0L) userId else chatId, 0, 1)).totalCount > 0 }.getOrDefault(false)
-                        ProfileTab.Gifts -> if (userId != 0L) (full?.giftCount ?: 0) > 0 else false
                         ProfileTab.Groups -> userId != 0L && (full?.groupInCommonCount ?: 0) > 0
                         else -> chat != 0L && runCatching { graph.td.send(TdApi.GetChatMessageCount(chat, null, tab.filter(), false)).count > 0 }.getOrDefault(false)
                     }
@@ -138,8 +132,6 @@ private fun TabsBody(graph: AppGraph, navigator: Navigator, userId: Long, chatId
         Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
             when (current) {
                 ProfileTab.Members -> MembersList(graph, supergroupId, chatId, onOpenUser)
-                ProfileTab.Posts -> PostsGrid(graph, if (userId != 0L) userId else chatId)
-                ProfileTab.Gifts -> GiftsGrid(graph, owner)
                 ProfileTab.Groups -> GroupsList(graph, navigator, userId)
                 ProfileTab.Media -> MediaGrid(graph, navigator, userId, chatId)
                 else -> MessageList(graph, navigator, userId, chatId, current)
@@ -218,68 +210,6 @@ private fun Thumb(graph: AppGraph, file: TdApi.File?, mini: ByteArray?, shape: R
 }
 
 private fun TdApi.Photo.thumb(): TdApi.File? = sizes.sortedBy { it.width }.firstOrNull { it.width >= 240 }?.photo ?: sizes.maxByOrNull { it.width }?.photo
-
-@Composable
-private fun PostsGrid(graph: AppGraph, chatId: Long) {
-    val stories by produceState<List<TdApi.Story>?>(null, chatId) {
-        value = runCatching { graph.td.send(TdApi.GetChatPostedToChatPageStories(chatId, 0, 30)).stories.toList() }.getOrNull() ?: emptyList()
-    }
-    val list = stories ?: return Loading()
-    Grid(list.withIndex().toList()) { (index, story) ->
-        val shape = cellShape(index, list.size, 3)
-        when (val content = story.content) {
-            is TdApi.StoryContentPhoto -> Thumb(graph, content.photo.thumb(), content.photo.minithumbnail?.data, shape, false) { com.pixelgram.android.feature.stories.StoryViewer.openList(story.posterChatId, list.map { it.id }, index) }
-            is TdApi.StoryContentVideo -> Thumb(graph, content.video.thumbnail?.file, content.video.minithumbnail?.data, shape, true) { com.pixelgram.android.feature.stories.StoryViewer.openList(story.posterChatId, list.map { it.id }, index) }
-            else -> Box(Modifier.fillMaxSize().clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHigh))
-        }
-    }
-}
-
-@Composable
-private fun GiftsGrid(graph: AppGraph, owner: TdApi.MessageSender) {
-    val changed = com.pixelgram.android.feature.chat.GiftSheets.changed
-    val gifts by produceState<List<TdApi.ReceivedGift>?>(null, owner, changed) {
-        value = runCatching {
-            graph.td.send(TdApi.GetReceivedGifts("", owner, 0, false, false, false, false, false, false, false, false, false, "", 60)).gifts.toList()
-        }.getOrNull() ?: emptyList()
-    }
-    val list = gifts ?: return Loading()
-    val store = graph.store.snapshot.collectAsState()
-    val files by remember { androidx.compose.runtime.derivedStateOf { store.value.files } }
-    val users by remember { androidx.compose.runtime.derivedStateOf { store.value.users } }
-    val meId by remember { androidx.compose.runtime.derivedStateOf { store.value.meId } }
-    val own = (owner as? TdApi.MessageSenderUser)?.userId == meId
-    val ordered = remember(list) { list.sortedByDescending { it.isPinned } }
-    Grid(ordered.withIndex().toList()) { (index, gift) ->
-        val shape = cellShape(index, ordered.size, 3)
-        val upgraded = (gift.gift as? TdApi.SentGiftUpgraded)?.gift
-        var visible by remember { mutableStateOf(false) }
-        Box(
-            Modifier.fillMaxSize().onGloballyPositioned { visible = it.boundsInWindow().height > 0f }.clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable { com.pixelgram.android.feature.chat.GiftSheets.current = com.pixelgram.android.feature.chat.GiftTarget.Received(gift, own) },
-            contentAlignment = Alignment.Center,
-        ) {
-            if (upgraded != null) {
-                com.pixelgram.android.feature.chat.UniqueGiftArt(upgraded, Modifier.fillMaxSize(), shape = shape, modelScale = 0.66f, still = !visible, maxPx = GiftCellPx)
-            } else {
-                val sticker = (gift.gift as? TdApi.SentGiftRegular)?.gift?.sticker
-                if (sticker != null) com.pixelgram.android.feature.chat.StickerView(sticker, files, { graph.store.requestFileAsync(it) }, Modifier.fillMaxSize(0.7f), video = false, still = !visible, maxPx = GiftCellPx)
-            }
-            if (gift.isPinned) {
-                Box(Modifier.align(Alignment.TopStart).padding(6.dp).size(22.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.Black.copy(alpha = 0.25f)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.PushPin, null, Modifier.size(13.dp).graphicsLayer { rotationZ = 45f }, tint = Color.White)
-                }
-            } else if (upgraded == null) {
-                val sender = (gift.senderId as? TdApi.MessageSenderUser)?.userId
-                if (sender != null) {
-                    val user = users[sender]
-                    Box(Modifier.align(Alignment.TopStart).padding(6.dp)) {
-                        Avatar(user?.name.orEmpty(), sender, user?.photoFileId?.let { files[it] }, user?.minithumb, 22.dp, onNeedFile = { user?.photoFileId?.let(graph.store::requestFileAsync) })
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun MembersList(graph: AppGraph, supergroupId: Long, chatId: Long, onOpenUser: (Long) -> Unit) {
@@ -431,7 +361,7 @@ private fun size(bytes: Long): String = when {
 
 private fun date(seconds: Int): String = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM).format(java.util.Date(seconds * 1000L))
 
-internal val SavedMediaTabs = listOf(R.string.profile_tab_media, R.string.profile_tab_files, R.string.profile_tab_links, R.string.profile_tab_music, R.string.profile_tab_voice)
+internal val SavedMediaTabs = listOf(R.string.profile_tab_media, R.string.profile_tab_files, R.string.profile_tab_links, R.string.profile_tab_voice)
 
 @Composable
 internal fun SavedMediaTab(graph: AppGraph, navigator: Navigator, chatId: Long, index: Int) {
@@ -439,7 +369,6 @@ internal fun SavedMediaTab(graph: AppGraph, navigator: Navigator, chatId: Long, 
         0 -> MediaGrid(graph, navigator, 0L, chatId)
         1 -> MessageList(graph, navigator, 0L, chatId, ProfileTab.Files)
         2 -> MessageList(graph, navigator, 0L, chatId, ProfileTab.Links)
-        3 -> MessageList(graph, navigator, 0L, chatId, ProfileTab.Music)
         else -> MessageList(graph, navigator, 0L, chatId, ProfileTab.Voice)
     }
 }

@@ -59,7 +59,6 @@ import coil.compose.AsyncImage
 import com.pixelgram.android.LocalGraph
 import com.pixelgram.android.R
 import androidx.compose.ui.res.painterResource
-import com.pixelgram.android.pixel.CustomBadge
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 
@@ -115,98 +114,8 @@ fun NameBadges(userId: Long, verified: Boolean, size: Dp = 18.dp, scam: Boolean 
             )
         }
     }
-    val official = UserBadge.of(userId)
-    if (official != null) UserBadgeView(official, size) else if (userId > 0) SupporterBadge(userId, name, size, label)
+    UserBadge.of(userId)?.let { UserBadgeView(it, size) }
 }
-
-@Composable
-fun SupporterBadge(userId: Long, name: String, size: Dp = 18.dp, label: Boolean = false) {
-    val graph = LocalGraph.current
-    val scheme = MaterialTheme.colorScheme
-    val supporters by remember { graph.remote.supporters }.collectAsState()
-    val badges by remember { graph.remote.badges }.collectAsState()
-    val number = supporters.numbers[userId]
-    val custom = badges[userId]?.takeIf { graph.remote.customAllowed(userId) }
-    val meId = graph.store.snapshot.collectAsState().value.meId
-    val editable = userId == meId && graph.remote.customAllowed(userId)
-    var editing by remember(userId) { androidx.compose.runtime.mutableStateOf(false) }
-    if (editing) com.pixelgram.android.feature.pixel.BadgeEditorSheet(userId, custom) { editing = false }
-    if (number == null && custom == null) return
-    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
-    val notice = custom?.text?.takeIf { it.isNotBlank() }
-        ?: stringResource(R.string.badge_supporter, name.ifBlank { stringResource(R.string.badge_supporter_someone) }, number?.toString().orEmpty())
-    var showLabel by remember(userId) { androidx.compose.runtime.mutableStateOf(label && number != null) }
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .padding(start = 4.dp)
-            .size(size)
-            .then(if (custom == null) Modifier.clip(MaterialShapes.Cookie12Sided.toShape()).background(scheme.tertiary) else Modifier)
-            .combinedClickable(
-                interactionSource = null,
-                indication = null,
-                onClick = { Notice.show(notice) },
-                onLongClick = if (editable) ({
-                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                    editing = true
-                }) else null,
-            ),
-    ) {
-        if (custom != null) {
-            CustomEmoji(custom, size)
-        } else {
-            Icon(painterResource(R.drawable.ic_pixelgram), contentDescription = notice, tint = scheme.onTertiary, modifier = Modifier.size(size * LogoScale))
-        }
-        if (showLabel && number != null) BadgeLabel(stringResource(R.string.badge_supporter_label, number)) { showLabel = false }
-    }
-}
-
-@Composable
-private fun BadgeLabel(text: String, onDone: () -> Unit) {
-    val shown = remember(text) { androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true } }
-    androidx.compose.runtime.LaunchedEffect(text) {
-        kotlinx.coroutines.delay(LabelMs)
-        shown.targetState = false
-    }
-    androidx.compose.runtime.LaunchedEffect(shown.currentState, shown.isIdle) {
-        if (shown.isIdle && !shown.currentState) onDone()
-    }
-    val gap = with(androidx.compose.ui.platform.LocalDensity.current) { 6.dp.roundToPx() }
-    androidx.compose.ui.window.Popup(
-        popupPositionProvider = remember {
-            object : androidx.compose.ui.window.PopupPositionProvider {
-                override fun calculatePosition(
-                    anchorBounds: androidx.compose.ui.unit.IntRect,
-                    windowSize: androidx.compose.ui.unit.IntSize,
-                    layoutDirection: androidx.compose.ui.unit.LayoutDirection,
-                    popupContentSize: androidx.compose.ui.unit.IntSize,
-                ) = androidx.compose.ui.unit.IntOffset(
-                    (anchorBounds.center.x - popupContentSize.width / 2).coerceIn(0, (windowSize.width - popupContentSize.width).coerceAtLeast(0)),
-                    (anchorBounds.top - popupContentSize.height - gap).coerceAtLeast(0),
-                )
-            }
-        },
-    ) {
-        androidx.compose.animation.AnimatedVisibility(
-            visibleState = shown,
-            enter = androidx.compose.animation.fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()) +
-                androidx.compose.animation.scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec(), initialScale = 0.8f, transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)),
-            exit = androidx.compose.animation.fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()) +
-                androidx.compose.animation.scaleOut(MaterialTheme.motionScheme.fastSpatialSpec(), targetScale = 0.8f, transformOrigin = androidx.compose.ui.graphics.TransformOrigin(0.5f, 1f)),
-        ) {
-            androidx.compose.material3.Surface(
-                shape = androidx.compose.foundation.shape.CircleShape,
-                color = MaterialTheme.colorScheme.inverseSurface,
-                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-                shadowElevation = 4.dp,
-            ) {
-                Text(text, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
-            }
-        }
-    }
-}
-
-private const val LabelMs = 5_000L
 
 @Composable
 fun OfficialBadge(size: Dp = 18.dp) {
@@ -233,43 +142,6 @@ fun VerifiedBadge(size: Dp = 18.dp) {
         modifier = Modifier.padding(start = 4.dp).size(size).clip(MaterialShapes.Cookie12Sided.toShape()).background(scheme.primary),
     ) {
         Icon(Icons.Rounded.Check, contentDescription = null, tint = scheme.onPrimary, modifier = Modifier.size(size * LogoScale))
-    }
-}
-
-@Composable
-fun UserBadgeView(badge: UserBadge, size: Dp = 18.dp) {
-    val graph = LocalGraph.current
-    val scheme = MaterialTheme.colorScheme
-    val custom by remember { graph.remote.badges }.collectAsState()
-    val own = custom[badge.userId]
-    val notice = stringResource(badge.notice)
-    val text = own?.text?.takeIf { it.isNotBlank() } ?: notice
-    val meId = graph.store.snapshot.collectAsState().value.meId
-    val editable = badge.userId == meId && graph.remote.customAllowed(badge.userId)
-    var editing by remember(badge.userId) { androidx.compose.runtime.mutableStateOf(false) }
-    if (editing) com.pixelgram.android.feature.pixel.BadgeEditorSheet(badge.userId, own) { editing = false }
-    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .padding(start = 4.dp)
-            .size(size)
-            .then(if (own == null) Modifier.clip(MaterialShapes.Cookie12Sided.toShape()).background(scheme.primary) else Modifier)
-            .combinedClickable(
-                interactionSource = null,
-                indication = null,
-                onClick = { Notice.show(text) },
-                onLongClick = if (editable) ({
-                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                    editing = true
-                }) else null,
-            ),
-    ) {
-        if (own != null) {
-            CustomEmoji(own, size)
-        } else {
-            Icon(badge.icon, contentDescription = notice, tint = scheme.onPrimary, modifier = Modifier.size(size * LogoScale))
-        }
     }
 }
 
@@ -314,63 +186,3 @@ fun NoticeHost(modifier: Modifier = Modifier) {
 
 private const val NoticeMs = 3_000L
 
-@Composable
-fun CustomEmoji(badge: CustomBadge, size: Dp) {
-    CustomEmojiView(badge.customEmojiId, badge.emoji, size = size)
-}
-
-private const val LogoScale = 0.66f
-
-private val CodeSlash: ImageVector by lazy {
-    ImageVector.Builder("CodeSlash", 24.dp, 24.dp, 960f, 960f)
-        .addPath(
-            addPathNodes("M320 300L140 480L320 660 M640 300L820 480L640 660 M550 220L410 740"),
-            stroke = SolidColor(Color.Black),
-            strokeLineWidth = 84f,
-            strokeLineCap = StrokeCap.Round,
-            strokeLineJoin = StrokeJoin.Round,
-        )
-        .build()
-}
-
-private val PoopIcon: ImageVector by lazy {
-    ImageVector.Builder("Poop", 24.dp, 24.dp, 960f, 960f)
-        .addPath(
-            addPathNodes("M230.0 600H730.0A100.0 100.0 0 0 1 730.0 800H230.0A100.0 100.0 0 0 1 230.0 600ZM315.0 430H645.0A95.0 95.0 0 0 1 645.0 620H315.0A95.0 95.0 0 0 1 315.0 430ZM395.0 280H565.0A85.0 85.0 0 0 1 565.0 450H395.0A85.0 85.0 0 0 1 395.0 280ZM440 290Q430 190 540 140Q520 210 590 290Z"),
-            fill = SolidColor(Color.Black),
-        )
-        .build()
-}
-
-private val MenorahIcon: ImageVector by lazy {
-    ImageVector.Builder("Menorah", 24.dp, 24.dp, 960f, 960f)
-        .addPath(
-            addPathNodes("M480 330L480 760 M390 330A90 90 0 0 0 570 330 M300 330A180 180 0 0 0 660 330 M210 330A270 270 0 0 0 750 330 M380 790L580 790"),
-            stroke = SolidColor(Color.Black),
-            strokeLineWidth = 52f,
-            strokeLineCap = StrokeCap.Round,
-            strokeLineJoin = StrokeJoin.Round,
-        )
-        .addPath(
-            addPathNodes(
-                (0 until 7).joinToString(" ") { i ->
-                    val x = 210 + i * 90
-                    "M${x - 38} 250L${x + 38} 250L${x + 22} 292L${x - 22} 292Z M$x 150Q${x + 30} 196 $x 228Q${x - 30} 196 $x 150Z"
-                },
-            ),
-            fill = SolidColor(Color.Black),
-        )
-        .build()
-}
-
-private val BugNet: ImageVector by lazy {
-    ImageVector.Builder("BugNet", 24.dp, 24.dp, 960f, 960f)
-        .addPath(
-            addPathNodes("M590 120a250 250 0 1 0 0.1 0Z M590 130L590 610 M350 370L830 370 M410 550L140 840"),
-            stroke = SolidColor(Color.Black),
-            strokeLineWidth = 96f,
-            strokeLineCap = StrokeCap.Round,
-            strokeLineJoin = StrokeJoin.Round,
-        )
-        .build()
-}
