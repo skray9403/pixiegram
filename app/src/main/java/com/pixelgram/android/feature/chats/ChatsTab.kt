@@ -186,7 +186,7 @@ fun ChatsTab(
     BackHandler(enabled = fabMenu) { fabMenu = false }
     LaunchedEffect(tracker.hidden) { if (tracker.hidden) fabMenu = false }
     if (newMessage) NewMessageSheet(graph, navigator) { newMessage = false }
-    if (hiddenChatsOpen) com.pixelgram.android.feature.security.TitanHiddenChatsDialog(graph) { hiddenChatsOpen = false }
+    if (hiddenChatsOpen) com.pixelgram.android.feature.security.TitanHiddenChatsDialog(graph) { graph.hiddenChats.lock(); hiddenChatsOpen = false }
     newChat?.let { channel -> NewChatDialog(graph, navigator, channel) { newChat = null } }
     Scaffold(
         floatingActionButton = {

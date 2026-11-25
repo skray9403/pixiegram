@@ -48,8 +48,11 @@ class TitanHiddenChats(context: Context) {
 
     fun isVisible(chatId: Long): Boolean {
         if (chatId == 0L) return true
-        val selected = prefs.getStringSet(KEY_HASHES, emptySet()).orEmpty().contains(hashId(chatId))
-        val mode = runCatching { HiddenChatMode.valueOf(prefs.getString(KEY_MODE, null) ?: "ExcludeSelected") }.getOrDefault(HiddenChatMode.ExcludeSelected)
+        val hashes = prefs.getStringSet(KEY_HASHES, emptySet()).orEmpty()
+        val mode = runCatching { HiddenChatMode.valueOf(prefs.getString(KEY_MODE, null) ?: "ExcludeSelected") }
+            .getOrDefault(HiddenChatMode.ExcludeSelected)
+        if (hashes.isEmpty()) return mode == HiddenChatMode.ExcludeSelected
+        val selected = hashes.contains(hashId(chatId))
         return when (mode) {
             HiddenChatMode.ExcludeSelected -> !selected
             HiddenChatMode.IncludeOnlySelected -> selected
@@ -166,20 +169,21 @@ class TitanHiddenChats(context: Context) {
         return if (Build.VERSION.SDK_INT >= 28) runCatching { generate(true) }.getOrElse { generate(false) } else generate(false)
     }
 
-    private fun hashId(id: Long): String {
+    private val indexKey: SecretKey by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        val key = (store.getKey(KEY_INDEX_ALIAS, null) as? SecretKey) ?: KeyGenerator.getInstance("HmacSHA256", "AndroidKeyStore").run {
+        (store.getKey(KEY_INDEX_ALIAS, null) as? SecretKey) ?: KeyGenerator.getInstance("HmacSHA256", "AndroidKeyStore").run {
             init(KeyGenParameterSpec.Builder(KEY_INDEX_ALIAS, KeyProperties.PURPOSE_SIGN)
                 .setDigests(KeyProperties.DIGEST_SHA256)
                 .setUserAuthenticationRequired(false)
                 .build())
             generateKey()
         }
-        return Base64.encodeToString(
-            Mac.getInstance("HmacSHA256").run { init(key); doFinal(id.toString().toByteArray()) },
-            Base64.NO_WRAP,
-        )
     }
+
+    private fun hashId(id: Long): String = Base64.encodeToString(
+        Mac.getInstance("HmacSHA256").run { init(indexKey); doFinal(id.toString().toByteArray()) },
+        Base64.NO_WRAP,
+    )
 
     private data class HiddenConfig(val mode: HiddenChatMode, val ids: Set<Long>)
     private companion object {
