@@ -71,7 +71,7 @@ fun MainShell(graph: AppGraph, navigator: Navigator) {
     )
     val density = LocalDensity.current
     var barHeight by remember { mutableStateOf(0.dp) }
-    val floating = appearance.navBarStyle == NavBarStyle.Expressive
+    val floating = true
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         CompositionLocalProvider(LocalBottomBarPadding provides if (floating) barHeight else 0.dp) {
             val order = listOf(MainTab.Chats, MainTab.Contacts, MainTab.Settings)
@@ -102,9 +102,7 @@ fun MainShell(graph: AppGraph, navigator: Navigator) {
             }
         }
         Box(Modifier.align(Alignment.BottomCenter).onSizeChanged { with(density) { barHeight = it.height.toDp() } }) {
-            if (appearance.showBottomBar) {
-                MainNavBar(appearance.navBarStyle, tabs, tab, { tab = it }, appearance.capsuleInset, appearance.capsuleSpacing, appearance.capsuleHeight)
-            }
+            MainNavBar(NavBarStyle.Expressive, tabs, tab, { tab = it }, appearance.capsuleInset, appearance.capsuleSpacing, appearance.capsuleHeight)
         }
     }
 }
