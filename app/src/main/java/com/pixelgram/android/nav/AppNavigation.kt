@@ -259,7 +259,7 @@ private fun androidx.compose.ui.Modifier.androidx_swipeBack(
             if (EtgBack.progress > 0.35f || speed > 1200f) {
                 EtgBack.commit(scope)
                 onBack()
-            } else EtgBack.released(scope)
+            } else EtgBack.released(scope, speed / size.width)
         }
     },
 )
@@ -291,6 +291,7 @@ object EtgBack {
     var closingKey: String? = null
     var enteringKey: String? = null
     private var job: kotlinx.coroutines.Job? = null
+    private val cancelProgress = androidx.compose.animation.core.Animatable(0f)
 
     fun matches(key: String, target: String?) = target != null && (key == target || key.startsWith("$target:"))
 
@@ -330,22 +331,27 @@ object EtgBack {
         progress = gesture.getInterpolation(fraction.coerceIn(0f, 1f))
     }
 
-    fun released(scope: kotlinx.coroutines.CoroutineScope) {
+    fun released(
+        scope: kotlinx.coroutines.CoroutineScope,
+        initialVelocity: Float = 0f,
+    ) {
         if (phase != Drag) return
         job = scope.launch {
             androidx.compose.runtime.withFrameNanos { }
             if (phase != Drag) return@launch
             phase = Cancel
             val from = progress
-            val duration = maxOf(120, (from * 220).toInt())
-            val start = androidx.compose.runtime.withFrameNanos { it }
-            while (true) {
-                val now = androidx.compose.runtime.withFrameNanos { it }
-                val f = (((now - start) / 1_000_000f) / duration).coerceIn(0f, 1f)
-                val value = from * (1f - easeOutQuint.getInterpolation(f))
-                progress = value
-                scrim = if (from != 0f) value / from else 0f
-                if (f >= 1f) break
+            cancelProgress.snapTo(from)
+            cancelProgress.animateTo(
+                targetValue = 0f,
+                animationSpec = androidx.compose.animation.core.spring(
+                    dampingRatio = 0.76f,
+                    stiffness = 420f,
+                ),
+                initialVelocity = initialVelocity.coerceIn(-5f, 5f),
+            ) {
+                progress = value.coerceIn(0f, 1f)
+                scrim = if (from > 0f) (value / from).coerceIn(0f, 1f) else 0f
             }
             reset()
         }
