@@ -209,8 +209,7 @@ fun ChatsTab(
                     .padding(
                         bottom = (com.pixelgram.android.ui.components.LocalBottomBarPadding.current -
                             androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() - FabLift).coerceAtLeast(0.dp),
-                    )
-                    ,
+                    ),
             ) {
                 androidx.compose.material3.FloatingActionButtonMenu(
                     expanded = fabMenu,

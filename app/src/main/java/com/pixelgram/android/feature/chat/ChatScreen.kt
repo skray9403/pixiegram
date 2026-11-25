@@ -2438,28 +2438,28 @@ private fun FormatRow(label: String, style: androidx.compose.ui.text.TextStyle, 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SendPhotosSheet(paths: List<String>, caption: String, onDismiss: () -> Unit, onSend: (List<String>, String) -> Unit) {
-    val items = remember(paths) { androidx.compose.runtime.mutableStateListOf<String>().apply { addAll(paths) } }
+    val selectedPaths = remember(paths) { androidx.compose.runtime.mutableStateListOf<String>().apply { addAll(paths) } }
     var text by remember { mutableStateOf(caption) }
     val sheet = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet) {
         Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp).imePadding(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            val videos = items.count { isVideoPath(it) }
+            val videos = selectedPaths.count { isVideoPath(it) }
             Text(
                 when {
-                    videos == 0 -> pluralStringResource(R.plurals.send_photos_title, items.size, items.size)
+                    videos == 0 -> pluralStringResource(R.plurals.send_photos_title, selectedPaths.size, items.size)
                     videos == items.size -> pluralStringResource(R.plurals.send_videos_title, items.size, items.size)
                     else -> pluralStringResource(R.plurals.send_media_title, items.size, items.size)
                 },
                 style = MaterialTheme.typography.titleLargeEmphasized,
             )
             androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(items.size, key = { items[it] }) { index ->
-                    val path = items[index]
+                items(items.size, key = { selectedPaths[it] }) { index ->
+                    val path = selectedPaths[index]
                     Box(Modifier.size(if (items.size == 1) 260.dp else 160.dp).animateItem().clip(RoundedCornerShape(20.dp))) {
                         AsyncImage(model = File(path), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
                         if (items.size > 1) {
                             Surface(
-                                onClick = { items.remove(path) },
+                                onClick = { selectedPaths.remove(path) },
                                 shape = CircleShape,
                                 color = Color.Black.copy(alpha = 0.55f),
                                 contentColor = Color.White,
@@ -2480,7 +2480,7 @@ private fun SendPhotosSheet(paths: List<String>, caption: String, onDismiss: () 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Spacer(Modifier.weight(1f))
                 FilledIconButton(
-                    onClick = { if (items.isNotEmpty()) onSend(items.toList(), text) },
+                    onClick = { if (selectedPaths.isNotEmpty()) onSend(selectedPaths.toList(), text) },
                     enabled = items.isNotEmpty(),
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier.size(64.dp),
