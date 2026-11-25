@@ -62,31 +62,6 @@ import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.launch
 import org.drinkless.tdlib.TdApi
 
-enum class UserBadge(val userId: Long, val notice: Int) {
-    MainDeveloper(1780288121L, R.string.badge_main_developer),
-    Developer(1061520526L, R.string.badge_developer),
-    SecondDeveloper(1170147841L, R.string.badge_developer),
-    Sponsor(1602207467L, R.string.badge_sponsor),
-    Tester(7820526891L, R.string.badge_tester),
-    SecondTester(1635698970L, R.string.badge_tester),
-    Menorah(8315838128L, R.string.badge_friend),
-    Poop(7826361017L, R.string.badge_poop);
-
-    val icon: ImageVector
-        get() = when (this) {
-            MainDeveloper -> CodeSlash
-            Developer, SecondDeveloper -> Icons.Rounded.Build
-            Sponsor -> Icons.Rounded.AttachMoney
-            Tester, SecondTester -> BugNet
-            Menorah -> MenorahIcon
-            Poop -> PoopIcon
-        }
-
-    companion object {
-        fun of(userId: Long): UserBadge? = entries.firstOrNull { it.userId == userId }
-    }
-}
-
 @Composable
 fun NameBadges(userId: Long, verified: Boolean, size: Dp = 18.dp, scam: Boolean = false, fake: Boolean = false, name: String = "", label: Boolean = false, official: Boolean = false) {
     val statusGraph = LocalGraph.current
@@ -114,7 +89,6 @@ fun NameBadges(userId: Long, verified: Boolean, size: Dp = 18.dp, scam: Boolean 
             )
         }
     }
-    UserBadge.of(userId)?.let { UserBadgeView(it, size) }
 }
 
 @Composable
@@ -130,7 +104,7 @@ fun OfficialBadge(size: Dp = 18.dp) {
             .background(scheme.primary)
             .clickable(interactionSource = null, indication = null) { Notice.show(notice) },
     ) {
-        Icon(painterResource(R.drawable.ic_pixelgram), contentDescription = notice, tint = scheme.onPrimary, modifier = Modifier.size(size * LogoScale))
+        Icon(painterResource(R.drawable.ic_pixelgram), contentDescription = notice, tint = scheme.onPrimary, modifier = Modifier.size(size * 0.62f))
     }
 }
 
