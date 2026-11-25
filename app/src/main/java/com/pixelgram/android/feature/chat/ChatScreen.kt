@@ -1373,7 +1373,7 @@ internal fun MessageBubble(
 @OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun AudioRow(audio: TdApi.Audio, outgoing: Boolean, onPlay: () -> Unit) {
-    val music = com.pixelgram.android.LocalGraph.current.audio
+    val audioPlayer = com.pixelgram.android.LocalGraph.current.audio
     val state by audioPlayer.state.collectAsState()
     val current = state.track?.fileId == audio.audio.id
     val playing = current && state.playing
