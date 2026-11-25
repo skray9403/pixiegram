@@ -219,10 +219,7 @@ fun ChatsTab(
                         androidx.compose.material3.ToggleFloatingActionButton(
                             checked = fabMenu,
                             onCheckedChange = { fabMenu = it },
-                            containerSize = androidx.compose.ui.unit.DpSize(
-                                width = if (fabCollapsed) 56.dp else 112.dp,
-                                height = 56.dp,
-                            ),
+                            containerSize = { if (fabCollapsed) 56.dp else 112.dp },
                             modifier = Modifier
                                 .graphicsLayer {
                                     scaleX = fabScale
