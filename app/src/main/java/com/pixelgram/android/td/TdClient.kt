@@ -1,10 +1,8 @@
 package com.pixelgram.android.td
 
 import android.content.Context
-import android.os.Build
 import com.pixelgram.android.BuildConfig
 import java.io.File
-import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CoroutineScope
@@ -83,10 +81,10 @@ class TdClient(private val context: Context, private val scope: CoroutineScope, 
         useSecretChats = true
         apiId = apiId()
         apiHash = apiHash()
-        systemLanguageCode = Locale.getDefault().language.ifBlank { "en" }
-        deviceModel = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
-        systemVersion = "Android ${Build.VERSION.RELEASE}"
-        applicationVersion = BuildConfig.VERSION_NAME
+        systemLanguageCode = "en"
+        deviceModel = "Desktop"
+        systemVersion = "Linux"
+        applicationVersion = "11.0.0"
     }
 
     @Suppress("UNCHECKED_CAST")

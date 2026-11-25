@@ -102,6 +102,7 @@ data class StoreSnapshot(
     val unread: Map<String, UnreadInfo> = emptyMap(),
     val stories: List<StoryOwner> = emptyList(),
     val progress: Map<Int, FileProgress> = emptyMap(),
+    val allChats: List<ChatRow> = emptyList(),
 )
 
 private val OfficialSupergroupIds = setOf(4378271602L)
@@ -119,7 +120,12 @@ private fun TdApi.ChatList.key(): String = when (this) {
 }
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
-class TdStore(private val td: TdClient, private val scope: CoroutineScope, context: android.content.Context? = null) {
+class TdStore(
+    private val td: TdClient,
+    private val scope: CoroutineScope,
+    context: android.content.Context? = null,
+    private val hiddenChats: com.pixelgram.android.feature.security.TitanHiddenChats? = null,
+) {
     private val local = context?.getSharedPreferences("local_profiles", android.content.Context.MODE_PRIVATE)
 
     fun localName(userId: Long): String? = local?.getString("name_$userId", null)
@@ -272,7 +278,12 @@ class TdStore(private val td: TdClient, private val scope: CoroutineScope, conte
                 lists.getOrPut(position.list.key()) { ArrayList() } += row(chat, position)
             }
         }
-        val sorted = lists.mapValues { (_, rows) -> rows.sortedByDescending { it.order } }
+        val allSorted = lists.mapValues { (_, rows) -> rows.sortedByDescending { it.order } }
+        val sorted = allSorted.mapValues { (_, rows) -> rows.filter { hiddenChats?.isVisible(it.id) != false } }
+        val allChats = allSorted.values.flatten().distinctBy { it.id }.sortedByDescending { it.order }
+        val visibleUnread = sorted.mapValues { (_, rows) ->
+            UnreadInfo(rows.count { it.unread > 0 }, rows.count { it.unread > 0 && !it.muted })
+        } + unread.filterKeys { it !in sorted.keys }
         val userInfo = users.mapValues { (id, user) ->
             val info = user.info()
             val name = localName(id)
@@ -281,7 +292,7 @@ class TdStore(private val td: TdClient, private val scope: CoroutineScope, conte
         }
 
         val storyRow = stories.values.filter { !it.archived }.sortedWith(compareByDescending<StoryOwner> { it.chatId == meId }.thenByDescending { it.order })
-        snapshotFlow.value = StoreSnapshot(sorted, folders, userInfo, HashMap(files), meId, HashMap(unread), storyRow, HashMap(progress))
+        snapshotFlow.value = StoreSnapshot(sorted, folders, userInfo, HashMap(files), meId, visibleUnread, storyRow, HashMap(progress), allChats)
         for (owner in storyRow.take(20)) chats[owner.chatId]?.photo?.small?.id?.let { requestFile(it) }
         val wanted = sorted[LIST_MAIN].orEmpty().take(60).mapNotNull { it.photoFileId.takeIf { id -> id != 0 } }
         for (id in wanted) requestFile(id)

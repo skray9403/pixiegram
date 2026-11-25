@@ -41,7 +41,7 @@ import com.pixelgram.android.feature.settings.SessionsScreen
 import kotlinx.serialization.Serializable
 
 @Serializable data object MainKey : NavKey
-@Serializable data class ChatKey(val chatId: Long, val topicId: Int = 0) : NavKey
+@Serializable data class ChatKey(val chatId: Long, val topicId: Int = 0, val returnChatId: Long = 0L) : NavKey
 @Serializable data class ForumKey(val chatId: Long) : NavKey
 @Serializable data class ManageChatKey(val chatId: Long, val page: String = "") : NavKey
 @Serializable data class ProfileKey(val userId: Long, val chatId: Long = 0) : NavKey
@@ -93,7 +93,14 @@ class Navigator(private val stack: MutableList<NavKey>) {
     }
 
     fun back() {
-        if (stack.size > 1) stack.removeAt(stack.lastIndex)
+        if (stack.size <= 1) return
+        val current = stack.lastOrNull() as? ChatKey
+        val returnChatId = current?.returnChatId ?: 0L
+        stack.removeAt(stack.lastIndex)
+        if (returnChatId != 0L) {
+            if ((stack.lastOrNull() as? ProfileKey)?.chatId == returnChatId) stack.removeAt(stack.lastIndex)
+            if ((stack.lastOrNull() as? ChatKey)?.chatId != returnChatId) stack.add(ChatKey(returnChatId))
+        }
     }
 
     fun toChat(chatId: Long) {

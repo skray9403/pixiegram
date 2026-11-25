@@ -362,7 +362,7 @@ fun ProfileScreen(graph: AppGraph, userId: Long, chatId: Long, navigator: Naviga
                     ProfileAction(Icons.AutoMirrored.Rounded.Chat, stringResource(R.string.profile_message)) {
                         scope.launch {
                             val created = runCatching { graph.td.send(TdApi.CreatePrivateChat(userId, false)) }.getOrNull()
-                            created?.let { navigator.open(ChatKey(it.id)) }
+                            created?.let { navigator.open(ChatKey(it.id, returnChatId = chatId)) }
                         }
                     }
                     val context = LocalContext.current
@@ -546,7 +546,7 @@ fun ProfileScreen(graph: AppGraph, userId: Long, chatId: Long, navigator: Naviga
                     full,
                     supergroupId = group?.supergroupId ?: 0L,
                     isChannel = group?.isChannel == true,
-                    onOpenUser = { navigator.open(com.pixelgram.android.nav.ProfileKey(it)) },
+                    onOpenUser = { navigator.open(com.pixelgram.android.nav.ProfileKey(it, chatId)) },
                 )
             }
             Spacer(Modifier.height(24.dp + com.pixelgram.android.ui.components.LocalBottomBarPadding.current))

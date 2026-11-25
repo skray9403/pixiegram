@@ -380,9 +380,6 @@ internal fun AppearancePage(settings: AppearanceSettings, update: ((AppearanceSe
             }
         }
     }
-    SettingsGroup(stringResource(R.string.pixel_nav_tabs)) {
-        NavTabsEditor(settings.navTabs, settings.navOrder) { tabs, order -> update { it.copy(navTabs = tabs, navOrder = order) } }
-    }
     androidx.compose.animation.AnimatedVisibility(settings.showDrawer) {
         SettingsGroup(stringResource(R.string.pixel_drawer_items)) {
             DrawerEditor(settings.drawerItems, settings.drawerOrder) { items, order -> update { it.copy(drawerItems = items, drawerOrder = order) } }
@@ -816,7 +813,6 @@ private val MainTab.label: Int
     get() = when (this) {
         MainTab.Chats -> R.string.tab_chats
         MainTab.Contacts -> R.string.tab_contacts
-        MainTab.Profile -> R.string.tab_profile
         MainTab.Settings -> R.string.tab_settings
     }
 

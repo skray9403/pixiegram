@@ -186,12 +186,14 @@ fun ChatsTab(
     stories.hasStories = storyOwners.isNotEmpty()
     val tracker = remember { HideOnScroll(with(density) { HideDistance.toPx() }, with(density) { ShowDistance.toPx() }) }
     var newMessage by remember { mutableStateOf(false) }
+    var hiddenChatsOpen by remember { mutableStateOf(false) }
     var fabMenu by remember { mutableStateOf(false) }
     var scrollTop by remember { mutableStateOf(0) }
     var newChat by remember { mutableStateOf<Boolean?>(null) }
     BackHandler(enabled = fabMenu) { fabMenu = false }
     LaunchedEffect(tracker.hidden) { if (tracker.hidden) fabMenu = false }
     if (newMessage) NewMessageSheet(graph, navigator) { newMessage = false }
+    if (hiddenChatsOpen) com.pixelgram.android.feature.security.TitanHiddenChatsDialog(graph) { hiddenChatsOpen = false }
     newChat?.let { channel -> NewChatDialog(graph, navigator, channel) { newChat = null } }
     Scaffold(
         floatingActionButton = {
@@ -352,6 +354,7 @@ fun ChatsTab(
                         if (lockOn && !archive) {
                             IconButton(onClick = { com.pixelgram.android.feature.security.PasscodeLock.lockNow(lockContext) }) { Icon(Icons.Rounded.LockOpen, stringResource(R.string.passcode_lock_now)) }
                         }
+                        IconButton(onClick = { hiddenChatsOpen = true }) { Icon(Icons.Rounded.LockOpen, "Hidden chats") }
                         IconButton(onClick = { navigator.open(com.pixelgram.android.nav.SearchKey) }) { Icon(Icons.Rounded.Search, stringResource(R.string.search_chats)) }
                     },
                     navigationIcon = {

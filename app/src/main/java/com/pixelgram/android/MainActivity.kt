@@ -5,7 +5,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.heightIn
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.collectAsState
@@ -16,7 +16,7 @@ import com.pixelgram.android.feature.auth.AuthStep
 import com.pixelgram.android.nav.AppNavigation
 import com.pixelgram.android.ui.theme.PixelTheme
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun attachBaseContext(newBase: android.content.Context) {
         super.attachBaseContext(com.pixelgram.android.feature.settings.AppLanguage.wrap(newBase))
     }
@@ -29,6 +29,7 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         com.pixelgram.android.feature.security.PasscodeLock.onStop()
+        (application as PixelApp).graph.hiddenChats.lock()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,7 +38,6 @@ class MainActivity : ComponentActivity() {
             graph.auth.state.value.step == AuthStep.Loading
         }
         super.onCreate(savedInstanceState)
-        graph.music.cast.init()
         handle(intent)
         if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {}.launch(android.Manifest.permission.POST_NOTIFICATIONS)
@@ -65,10 +65,6 @@ class MainActivity : ComponentActivity() {
         if (intent?.action == com.pixelgram.android.notify.Notifier.OpenChatAction) {
             val chatId = intent.getLongExtra(com.pixelgram.android.notify.Notifier.ExtraChat, 0L)
             if (chatId != 0L) com.pixelgram.android.nav.PendingNav.chat = chatId
-        }
-        if (intent?.action == com.pixelgram.android.music.OpenPlayerAction) {
-            com.pixelgram.android.feature.player.FullPlayer.view = com.pixelgram.android.feature.player.PlayerView.Queue
-            com.pixelgram.android.feature.player.FullPlayer.open = true
         }
     }
 }
