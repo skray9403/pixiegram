@@ -143,3 +143,5 @@ jobs:
             --prerelease --latest=false --target "$GITHUB_SHA" \
             --title "pixelGram Android alpha" \
             --notes "$(printf 'build %s · pixelGram Android %s (%s). This release is updated on every push to main.\n\n%s' "$GITHUB_RUN_NUMBER" "$version" "$(git rev-parse --short HEAD)" "$(git log -1 --pretty=%s)")"
+
+# CI trigger diagnostic: harmless comment-only commit to verify push-triggered Actions runs.
