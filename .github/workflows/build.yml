@@ -147,3 +147,5 @@ jobs:
 # CI trigger diagnostic: harmless comment-only commit to verify push-triggered Actions runs.
 
 # CI trigger diagnostic: second push after repository Actions permissions were enabled.
+
+# CI trigger diagnostic: explicit rebuild requested on 2026-11-26.
