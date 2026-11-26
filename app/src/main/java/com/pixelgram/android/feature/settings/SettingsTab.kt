@@ -66,7 +66,7 @@ import org.drinkless.tdlib.TdApi
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun SettingsTab(graph: AppGraph, navigator: Navigator, onOpenDrawer: (() -> Unit)?, onBack: (() -> Unit)? = null) {
+fun SettingsTab(graph: AppGraph, navigator: Navigator, onOpenDrawer: (() -> Unit)?, onBack: (() -> Unit)? = null, externalSearchQuery: String = "") {
     val appContext = androidx.compose.ui.platform.LocalContext.current.applicationContext
     val snapshot by graph.store.snapshot.collectAsState()
     val appearance by graph.appearance.state.collectAsState()
@@ -76,6 +76,21 @@ fun SettingsTab(graph: AppGraph, navigator: Navigator, onOpenDrawer: (() -> Unit
     var hiddenChatsOpen by remember { mutableStateOf(false) }
     me?.username?.takeIf { showQr }?.let { name -> com.pixelgram.android.feature.profile.ProfileQrSheet(name) { showQr = false } }
     val pickAvatar = com.pixelgram.android.feature.profile.rememberAvatarPicker(graph)
+    val query = externalSearchQuery.trim()
+    val allSections = SettingsSection.entries
+    val filteredSections = if (query.isEmpty()) allSections else allSections.filter { section ->
+        val terms = when (section) {
+            SettingsSection.Account -> "profile account username phone bio"
+            SettingsSection.Chats -> "chat stickers emoji"
+            SettingsSection.Privacy -> "privacy security hidden chats lock fingerprint strongbox titan 2fa sessions blocked"
+            SettingsSection.Notifications -> "notifications sounds badge muted private groups channels vibration preview"
+            SettingsSection.Data -> "data storage cache network downloads mobile wifi roaming drafts gallery streaming"
+            SettingsSection.Folders -> "folders filters tabs"
+            SettingsSection.Power -> "power saving battery animations autoplay stickers emoji transitions"
+            SettingsSection.Language -> "language locale"
+        }
+        section.name.contains(query, true) || terms.contains(query, true)
+    }
     Scaffold(contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0)) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             com.pixelgram.android.feature.profile.ProfileHeader(
@@ -123,20 +138,7 @@ fun SettingsTab(graph: AppGraph, navigator: Navigator, onOpenDrawer: (() -> Unit
                 }
             }
             SettingsGroup {
-                SettingsItem(
-                    title = stringResource(R.string.pixel_settings),
-                    subtitle = stringResource(R.string.pixel_settings_sub),
-                    painter = painterResource(R.drawable.ic_pixelgram),
-                    iconBackground = MaterialTheme.colorScheme.primary,
-                    iconTint = MaterialTheme.colorScheme.onPrimary,
-                    iconShape = androidx.compose.material3.MaterialShapes.Cookie12Sided.toShape(),
-                    position = SegmentPosition.Single,
-                    onClick = { navigator.open(PixelSettingsKey()) },
-                    link = "pg://pixel",
-                )
-            }
-            SettingsGroup {
-                val sections = SettingsSection.entries
+                val sections = filteredSections
                 sections.forEachIndexed { index, section ->
                     SettingsItem(
                         title = stringResource(section.title),
@@ -151,18 +153,6 @@ fun SettingsTab(graph: AppGraph, navigator: Navigator, onOpenDrawer: (() -> Unit
                     )
                 }
             }
-            SettingsGroup {
-                SettingsItem(
-                    title = "Hidden chats",
-                    subtitle = "Protect selected chats with strong biometrics",
-                    icon = Icons.Rounded.Lock,
-                    iconBackground = MaterialTheme.colorScheme.secondaryContainer,
-                    iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
-                    position = SegmentPosition.Single,
-                    onClick = { hiddenChatsOpen = true },
-                )
-            }
-            HelpGroup()
             Spacer(Modifier.height(24.dp + (if (onBack != null) 0.dp else com.pixelgram.android.ui.components.LocalBottomBarPadding.current)).let { if (onBack != null) it.navigationBarsPadding() else it })
         }
     }
