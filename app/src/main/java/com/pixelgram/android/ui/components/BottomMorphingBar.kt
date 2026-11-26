@@ -1,5 +1,13 @@
 package com.pixelgram.android.ui.components
 
+import androidx.compose.foundation.layout.offset
+
+import androidx.compose.foundation.layout.fillMaxSize
+
+import androidx.compose.foundation.layout.fillMaxHeight
+
+import androidx.compose.foundation.layout.BoxWithConstraints
+
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.withFrameNanos
 
@@ -212,53 +220,60 @@ fun <K> FloatingMorphingNavigationDock(
                     )
                 },
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = inset),
-                horizontalArrangement = Arrangement.spacedBy(spacing),
-                verticalAlignment = Alignment.CenterVertically,
+            BoxWithConstraints(
+                modifier = Modifier.fillMaxWidth().fillMaxHeight().padding(horizontal = 4.dp, vertical = inset),
             ) {
-                cappedDestinations.forEachIndexed { index, dest ->
-                    val isSelected = index == activeIndex
-                    val pillColor by animateColorAsState(
-                        targetValue = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                        animationSpec = spring(dampingRatio = 0.82f, stiffness = 900f),
-                        label = "dock-pill",
-                    )
-                    val contentColor by animateColorAsState(
-                        targetValue = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                        animationSpec = spring(dampingRatio = 0.82f, stiffness = 900f),
-                        label = "dock-fg",
-                    )
-                    val iconScale by animateFloatAsState(
-                        targetValue = if (isSelected) 1.05f else 1f,
-                        animationSpec = fastSpring,
-                        label = "dock-scale",
-                    )
-                    val padH by animateDpAsState(
-                        targetValue = if (isSelected) 12.dp else 8.dp,
-                        animationSpec = motion.spatialDp,
-                        label = "dock-pad",
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .weight(if (isSelected) 1.2f else 1f)
-                            .height(itemHeight)
-                            .clip(CircleShape)
-                            .background(pillColor)
-                            .clickable(
-                                onClick = {
+                val slotWidth = maxWidth / cappedDestinations.size
+                val indicatorOffset by animateDpAsState(
+                    targetValue = slotWidth * activeIndex,
+                    animationSpec = spring(dampingRatio = 0.80f, stiffness = 1000f),
+                    label = "dock-sliding-indicator",
+                )
+                Box(
+                    Modifier.offset(x = indicatorOffset)
+                        .width(slotWidth)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.secondaryContainer),
+                )
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.spacedBy(0.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    cappedDestinations.forEachIndexed { index, dest ->
+                        val isSelected = index == activeIndex
+                        val contentColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                            animationSpec = spring(dampingRatio = 0.80f, stiffness = 1000f),
+                            label = "dock-fg",
+                        )
+                        val iconScale by animateFloatAsState(
+                            targetValue = if (isSelected) 1.05f else 1f,
+                            animationSpec = fastSpring,
+                            label = "dock-scale",
+                        )
+                        Row(
+                            modifier = Modifier.weight(1f).fillMaxHeight().clip(CircleShape)
+                                .clickable {
                                     haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     onSelect(dest.key)
-                                },
-                            )
-                            .padding(horizontal = padH),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(modifier = Modifier.graphicsLayer { scaleX = iconScale; scaleY = iconScale }) {
-                            if (dest.badge > 0) {
-                                BadgedBox(badge = { Badge { Text(if (dest.badge > 99) "99+" else dest.badge.toString()) } }) {
+                                }
+                                .padding(horizontal = 6.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(modifier = Modifier.graphicsLayer { scaleX = iconScale; scaleY = iconScale }) {
+                                if (dest.badge > 0) {
+                                    BadgedBox(badge = { Badge { Text(if (dest.badge > 99) "99+" else dest.badge.toString()) } }) {
+                                        Icon(
+                                            imageVector = if (isSelected) dest.selectedIcon else dest.icon,
+                                            contentDescription = dest.contentDescription,
+                                            tint = contentColor,
+                                            modifier = Modifier.size(19.dp),
+                                        )
+                                    }
+                                } else {
                                     Icon(
                                         imageVector = if (isSelected) dest.selectedIcon else dest.icon,
                                         contentDescription = dest.contentDescription,
@@ -266,35 +281,28 @@ fun <K> FloatingMorphingNavigationDock(
                                         modifier = Modifier.size(19.dp),
                                     )
                                 }
-                            } else {
-                                Icon(
-                                    imageVector = if (isSelected) dest.selectedIcon else dest.icon,
-                                    contentDescription = dest.contentDescription,
-                                    tint = contentColor,
-                                    modifier = Modifier.size(19.dp),
-                                )
                             }
-                        }
-
-                        AnimatedVisibility(
-                            visible = isSelected,
-                            enter = fadeIn(motion.micro) + expandHorizontally(animationSpec = motion.spatialSize),
-                            exit = fadeOut(motion.micro) + shrinkHorizontally(animationSpec = motion.spatialSize),
-                        ) {
-                            Row {
-                                Spacer(Modifier.width(5.dp))
-                                Text(
-                                    text = dest.label,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = contentColor,
-                                    maxLines = 1,
-                                    softWrap = false,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
+                            AnimatedVisibility(
+                                visible = isSelected,
+                                enter = fadeIn(motion.micro) + expandHorizontally(animationSpec = motion.spatialSize),
+                                exit = fadeOut(motion.micro) + shrinkHorizontally(animationSpec = motion.spatialSize),
+                            ) {
+                                Row {
+                                    Spacer(Modifier.width(5.dp))
+                                    Text(
+                                        text = dest.label,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = contentColor,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
                             }
                         }
                     }
                 }
+            }
             }
         }
         }
