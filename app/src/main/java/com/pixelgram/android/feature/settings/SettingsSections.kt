@@ -300,6 +300,18 @@ private fun NotificationsSection(graph: AppGraph) {
             onClick = {
                 scope.launch {
                     runCatching { graph.td.send(TdApi.ResetAllNotificationSettings()) }
+                    graph.appearance.update {
+                        it.copy(
+                            notificationBadgeIcon = true,
+                            notificationIncludeMuted = false,
+                            notificationCountMessages = true,
+                            inAppSounds = true,
+                            inAppVibrate = true,
+                            inAppPreview = true,
+                            notifyContactJoined = true,
+                            notifyPinnedMessages = true,
+                        )
+                    }
                     reload++
                 }
             },
