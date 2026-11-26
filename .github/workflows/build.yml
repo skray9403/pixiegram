@@ -87,7 +87,7 @@ jobs:
           if [ -z "$KEYSTORE" ]; then echo "::warning::KEYSTORE secret is missing: APKs are signed with a throwaway key and cannot update each other"; fi
 
       - name: Assemble
-        run: ./gradlew --no-daemon -PtargetAbi="${TDLIB_ABIS// /,}" :app:assembleRelease
+        run: ./gradlew --no-daemon -PtargetAbi="${TDLIB_ABIS// /,}" :app:assembleDebug :app:assembleRelease
 
       - name: Stage APK
         run: |
