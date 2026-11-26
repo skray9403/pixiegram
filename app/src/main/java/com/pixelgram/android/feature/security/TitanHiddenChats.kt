@@ -66,12 +66,11 @@ class TitanHiddenChats(context: Context) {
     fun lock() { stateFlow.value = stateFlow.value.copy(unlocked = false, selectedChatIds = emptySet()) }
 
     fun authenticate(activity: FragmentActivity, onComplete: (Boolean) -> Unit = {}) {
-        val authenticators = if (Build.VERSION.SDK_INT >= 30) {
-            BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                BiometricManager.Authenticators.DEVICE_CREDENTIAL
-        } else {
-            BiometricManager.Authenticators.BIOMETRIC_STRONG
-        }
+        // A CryptoObject-backed prompt must use BIOMETRIC_STRONG alone.
+        // DEVICE_CREDENTIAL cannot be combined with a CryptoObject on Android 11+.
+        // Pixel fingerprint hardware reports BIOMETRIC_STRONG, so this keeps the
+        // Keystore authentication bound to the same biometric operation.
+        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG
         if (BiometricManager.from(activity).canAuthenticate(authenticators) != BiometricManager.BIOMETRIC_SUCCESS) {
             onComplete(false)
             return
@@ -235,7 +234,7 @@ class TitanHiddenChats(context: Context) {
             if (Build.VERSION.SDK_INT >= 30) {
                 spec.setUserAuthenticationParameters(
                     300,
-                    KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL,
+                    KeyProperties.AUTH_BIOMETRIC_STRONG,
                 )
             } else {
                 @Suppress("DEPRECATION")
@@ -306,8 +305,11 @@ fun TitanHiddenChatsDialog(graph: com.pixelgram.android.AppGraph, onDismiss: () 
         text = {
             Column(Modifier.fillMaxWidth().heightIn(max = 440.dp).verticalScroll(rememberScrollState())) {
                 if (!hidden.unlocked) {
-                    androidx.compose.material3.Text("Unlock to manage hidden chats. Strong biometric authentication is required.")
-                    if (authError) androidx.compose.material3.Text("Strong biometrics are unavailable or authentication failed.", color = androidx.compose.material3.MaterialTheme.colorScheme.error)
+                    androidx.compose.material3.Text("Unlock to manage hidden chats using your enrolled strong biometric.")
+                    if (authError) androidx.compose.material3.Text(
+                        "Authentication could not be completed. Check that a fingerprint is enrolled and try again.",
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.error,
+                    )
                 } else {
                     androidx.compose.material3.Text("Chat list mode", style = androidx.compose.material3.MaterialTheme.typography.labelLarge)
                     HiddenModeOption("Exclude selected chats", HiddenChatMode.ExcludeSelected, hidden.mode) { graph.hiddenChats.setMode(it) }
