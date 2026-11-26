@@ -5,6 +5,7 @@ import android.content.ContextWrapper
 import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
+import android.security.keystore.StrongBoxUnavailableException
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.biometric.BiometricManager
@@ -32,6 +33,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.KeyStore
+import java.security.ProviderException
 import javax.crypto.Mac
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -90,13 +92,8 @@ class TitanHiddenChats(context: Context) {
             }
         }
 
-        val cipher = try {
-            prepareCipher()
-        } catch (_: KeyPermanentlyInvalidatedException) {
-            // A biometric enrollment change invalidates per-use keys. The old ciphertext
-            // cannot be decrypted with a replacement key, so reset only this feature's
-            // encrypted selection and recreate the key rather than leaving it unusable.
-            runCatching {
+        fun recreateKeyAndCipher(): Cipher? {
+            val cleared = runCatching {
                 val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
                 if (store.containsAlias(KEY_ALIAS)) store.deleteEntry(KEY_ALIAS)
                 prefs.edit()
@@ -106,14 +103,25 @@ class TitanHiddenChats(context: Context) {
                     .putString(KEY_MODE, HiddenChatMode.ExcludeSelected.name)
                     .apply()
                 stateFlow.value = TitanHiddenChatState()
-            }.getOrElse {
-                onComplete(false)
-                return
-            }
-            runCatching { prepareCipher() }.getOrElse {
-                onComplete(false)
-                return
-            }
+            }.isSuccess
+            return if (cleared) runCatching { prepareCipher() }.getOrNull() else null
+        }
+
+        val cipher = try {
+            prepareCipher()
+        } catch (_: KeyPermanentlyInvalidatedException) {
+            // Enrollment changes invalidate per-use keys; their previous ciphertext is
+            // unrecoverable, so clear this feature's state and generate a fresh key.
+            recreateKeyAndCipher() ?: run { onComplete(false); return }
+        } catch (_: StrongBoxUnavailableException) {
+            // A previously StrongBox-backed key may stop being available after a
+            // provider/firmware change. Recreate it, allowing getOrCreateKey() to use TEE.
+            recreateKeyAndCipher() ?: run { onComplete(false); return }
+        } catch (_: ProviderException) {
+            // Treat a broken Keystore provider the same way, then retry with a new key.
+            recreateKeyAndCipher() ?: run { onComplete(false); return }
+        } catch (_: java.security.UnrecoverableKeyException) {
+            recreateKeyAndCipher() ?: run { onComplete(false); return }
         } catch (_: Throwable) {
             onComplete(false)
             return

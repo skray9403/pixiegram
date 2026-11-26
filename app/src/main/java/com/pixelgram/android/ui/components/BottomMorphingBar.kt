@@ -1,6 +1,7 @@
 package com.pixelgram.android.ui.components
 
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 
 import androidx.compose.ui.text.input.ImeAction
 
@@ -122,7 +123,8 @@ fun <K> FloatingMorphingNavigationDock(
     val searchFocus = remember { FocusRequester() }
     LaunchedEffect(searchExpanded) {
         if (searchExpanded) {
-            runCatching { searchFocus.requestFocus() }
+            withFrameNanos { }
+            searchFocus.requestFocus()
             keyboard?.show()
         } else keyboard?.hide()
     }
