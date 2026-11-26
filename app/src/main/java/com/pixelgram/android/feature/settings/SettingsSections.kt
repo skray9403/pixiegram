@@ -144,7 +144,7 @@ fun SettingsSectionScreen(graph: AppGraph, section: String, navigator: Navigator
             }
             when (current) {
                 SettingsSection.Account -> AccountEditor(graph)
-                SettingsSection.Privacy -> Unit
+                SettingsSection.Privacy -> PrivacySection(graph, navigator)
                 SettingsSection.Language -> LanguageSection()
                 SettingsSection.Folders -> FoldersSection(graph)
                 SettingsSection.Chats -> SettingsGroup {
