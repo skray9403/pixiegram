@@ -19,6 +19,13 @@ import org.drinkless.tdlib.TdApi
 
 class TdException(val error: TdApi.Error) : Exception("${error.code}: ${error.message}")
 
+object MithkaSessionAnonymizer {
+    const val DeviceModel: String = "Desktop"
+    const val SystemVersion: String = "Linux"
+    const val ApplicationVersion: String = "11.2.0"
+    const val SystemLanguageCode: String = "en"
+}
+
 class TdClient(private val context: Context, private val scope: CoroutineScope, private val offline: Boolean = false) {
     private val updateFlow = MutableSharedFlow<TdApi.Object>(extraBufferCapacity = 4096)
     val updates: SharedFlow<TdApi.Object> = updateFlow.asSharedFlow()
@@ -81,31 +88,38 @@ class TdClient(private val context: Context, private val scope: CoroutineScope, 
         useSecretChats = true
         apiId = apiId()
         apiHash = apiHash()
-        systemLanguageCode = "en"
-        deviceModel = "Desktop"
-        systemVersion = "Linux"
-        applicationVersion = "11.0.0"
+        systemLanguageCode = MithkaSessionAnonymizer.SystemLanguageCode
+        deviceModel = MithkaSessionAnonymizer.DeviceModel
+        systemVersion = MithkaSessionAnonymizer.SystemVersion
+        applicationVersion = MithkaSessionAnonymizer.ApplicationVersion
+    }
+
+    private fun <T : TdApi.Object> privacySafe(function: TdApi.Function<T>): TdApi.Function<T> {
+        if (function is TdApi.AddContact) function.sharePhoneNumber = false
+        return function
     }
 
     @Suppress("UNCHECKED_CAST")
     suspend fun <T : TdApi.Object> send(function: TdApi.Function<T>): T {
-        if (!PaidMessages.prepare(context, function) { runCatching { raw(it) }.getOrNull() }) {
+        val safeFunction = privacySafe(function)
+        if (!PaidMessages.prepare(context, safeFunction) { runCatching { raw(it) }.getOrNull() }) {
             throw TdException(TdApi.Error(400, "DECLINED_BY_USER"))
         }
-        if (SensitiveRequests.isSensitive(function) && SensitiveRequests.enabled(context) && !SensitiveRequests.confirm(function)) {
+        if (SensitiveRequests.isSensitive(safeFunction) && SensitiveRequests.enabled(context) && !SensitiveRequests.confirm(safeFunction)) {
             throw TdException(TdApi.Error(400, "DECLINED_BY_USER"))
         }
-        return raw(function)
+        return raw(safeFunction)
     }
 
     @Suppress("UNCHECKED_CAST")
     private suspend fun <T : TdApi.Object> raw(function: TdApi.Function<T>): T =
         suspendCancellableCoroutine { continuation ->
-            val client = client ?: return@suspendCancellableCoroutine when (val reply = offlineReply?.invoke(function)) {
+            val safeFunction = privacySafe(function)
+            val client = client ?: return@suspendCancellableCoroutine when (val reply = offlineReply?.invoke(safeFunction)) {
                 null, is TdApi.Error -> continuation.resumeWithException(TdException(reply as? TdApi.Error ?: TdApi.Error(406, "OFFLINE")))
                 else -> continuation.resume(reply as T)
             }
-            client.send(function) { result ->
+            client.send(safeFunction) { result ->
                 if (result is TdApi.Error) {
                     continuation.resumeWithException(TdException(result))
                 } else {
@@ -115,6 +129,6 @@ class TdClient(private val context: Context, private val scope: CoroutineScope, 
         }
 
     fun fire(function: TdApi.Function<*>) {
-        client?.send(function, null)
+        client?.send(privacySafe(function), null)
     }
 }
