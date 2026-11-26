@@ -358,7 +358,7 @@ fun ChatScreen(graph: AppGraph, chatId: Long, navigator: Navigator, topicId: Int
         object : androidx.compose.ui.platform.UriHandler {
             override fun openUri(uri: String) {
                 when {
-                    uri.startsWith("tg://user?id=") -> uri.removePrefix("tg://user?id=").toLongOrNull()?.let { navigator.open(com.pixelgram.android.nav.ProfileKey(it)) }
+                    uri.startsWith("tg://user?id=") -> uri.removePrefix("tg://user?id=").toLongOrNull()?.let { navigator.open(com.pixelgram.android.nav.ProfileKey(it, chatId)) }
                     uri.startsWith("mailto:") || uri.startsWith("tel:") -> runCatching { systemUri.openUri(uri) }
                     else -> linkOpener.url(uri)
                 }
@@ -619,7 +619,7 @@ fun ChatScreen(graph: AppGraph, chatId: Long, navigator: Navigator, topicId: Int
                                 val guestCaller = if (guest) snapshot.users[message.guestCallerId]?.name ?: graph.store.chat(message.guestCallerId)?.title.orEmpty() else ""
                                 MessageBubble(
                                     senderTag = tag,
-                                    onSenderClick = if (message.senderId != 0L) ({ navigator.open(if (message.senderId > 0) ProfileKey(message.senderId) else ProfileKey(0, message.senderId)) }) else null,
+                                    onSenderClick = if (message.senderId != 0L) ({ navigator.open(if (message.senderId > 0) ProfileKey(message.senderId, chatId) else ProfileKey(0, message.senderId)) }) else null,
                                     onTagClick = tag?.let { t ->
                                         {
                                             val mine = message.senderId == snapshot.meId
@@ -656,7 +656,7 @@ fun ChatScreen(graph: AppGraph, chatId: Long, navigator: Navigator, topicId: Int
                                                     minithumb = sender?.minithumb,
                                                     size = 34.dp,
                                                     onNeedFile = { sender?.photoFileId?.let(graph.store::requestFileAsync) },
-                                                    modifier = Modifier.clickable { navigator.open(if (message.senderId > 0) ProfileKey(message.senderId) else ProfileKey(0, message.senderId)) },
+                                                    modifier = Modifier.clickable { navigator.open(if (message.senderId > 0) ProfileKey(message.senderId, chatId) else ProfileKey(0, message.senderId)) },
                                                 )
                                             }
                                         }
@@ -671,7 +671,7 @@ fun ChatScreen(graph: AppGraph, chatId: Long, navigator: Navigator, topicId: Int
                                     reply = reply,
                                     replySender = reply?.let { snapshot.users[it.senderId]?.name ?: graph.store.chat(it.senderId)?.title.orEmpty() },
                                     onReplyClick = { jumpTo(message.replyToId) },
-                                    onOpenUser = { userId -> navigator.open(ProfileKey(userId)) },
+                                    onOpenUser = { userId -> navigator.open(ProfileKey(userId, chatId)) },
                                     onVote = { options -> controller.vote(message, options) },
                                     onPay = { com.pixelgram.android.feature.premium.PaymentRequest.current = TdApi.InputInvoiceMessage(chatId, message.id) },
                                     highlighted = highlighted == message.id,
