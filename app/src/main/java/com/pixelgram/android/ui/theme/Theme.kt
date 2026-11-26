@@ -42,16 +42,12 @@ fun PixelTheme(settings: AppearanceSettings, content: @Composable () -> Unit) {
         typography = typography,
         motionScheme = MotionScheme.expressive(),
     ) {
-        val staticAvatarShape = settings.avatarShape.shape(settings.avatarCorner)
-        val kindShapes = remember(settings.kindShapes, settings.avatarShape, settings.avatarCorner) {
-            AvatarKinds.associateWith { kind ->
-                (settings.kindShapes[kind.name] ?: settings.avatarShape).shape(settings.avatarCorner)
-            }
-        }
         CompositionLocalProvider(
             LocalMotionSpec provides MotionTokens.Default,
-            LocalAvatarShape provides staticAvatarShape,
-            LocalAvatarKindShapes provides kindShapes,
+            LocalAvatarShape provides animatedAvatarShape(settings.avatarShape, settings.avatarCorner),
+            LocalAvatarKindShapes provides AvatarKinds.associateWith { kind ->
+                androidx.compose.runtime.key(kind) { animatedAvatarShape(settings.kindShapes[kind.name] ?: settings.avatarShape, settings.avatarCorner) }
+            },
             LocalDarkTheme provides dark,
             LocalAppearance provides settings,
             content = content,
@@ -67,4 +63,30 @@ val AvatarKinds = listOf(
     com.pixelgram.android.td.ChatKind.Secret,
     com.pixelgram.android.td.ChatKind.Saved,
 )
+    com.pixelgram.android.td.ChatKind.Private,
+    com.pixelgram.android.td.ChatKind.Bot,
+    com.pixelgram.android.td.ChatKind.Group,
+    com.pixelgram.android.td.ChatKind.Channel,
+    com.pixelgram.android.td.ChatKind.Secret,
+    com.pixelgram.android.td.ChatKind.Saved,
+)
 
+
+@Composable
+internal fun animatedAvatarShape(shape: AvatarShape, corner: Int): androidx.compose.ui.graphics.Shape {
+    val target = shape.shape(corner)
+    val key = shape to corner
+    var from by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(key) }
+    val progress = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(1f) }
+    val morph = androidx.compose.runtime.remember(from, key) {
+        if (from == key) null else runCatching { androidx.graphics.shapes.Morph(from.first.morphPolygon(from.second), shape.morphPolygon(corner)) }.getOrNull()
+    }
+    androidx.compose.runtime.LaunchedEffect(key) {
+        if (from != key) {
+            progress.snapTo(0f)
+            progress.animateTo(1f, androidx.compose.animation.core.spring(0.6f, 300f))
+            from = key
+        }
+    }
+    return if (morph != null && progress.value < 1f) MorphShape(morph, progress.value) else target
+}
