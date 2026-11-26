@@ -400,13 +400,7 @@ fun ChatsTab(
                     )
                 }
                 val connection by graph.store.connection.collectAsState()
-                androidx.compose.animation.AnimatedVisibility(
-                    connection !is TdApi.ConnectionStateReady,
-                    enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
-                    exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut(),
-                ) {
-                    androidx.compose.material3.LinearWavyProgressIndicator(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp))
-                }
+
             }
         },
     ) { padding ->
@@ -642,6 +636,16 @@ private fun androidx.compose.foundation.layout.BoxScope.ChatSelectionBars(graph:
                 androidx.compose.animation.AnimatedContent(rows.size, label = "selected-count", modifier = Modifier.weight(1f)) { n ->
                     Text(androidx.compose.ui.res.pluralStringResource(R.plurals.selected_count, n, n), style = MaterialTheme.typography.titleMedium)
                 }
+                androidx.compose.material3.IconButton(onClick = {
+                    run(rows.filter { it.lastMessageId != 0L }.map { TdApi.ViewMessages(it.id, longArrayOf(it.lastMessageId), null, true) } + rows.map { TdApi.ToggleChatIsMarkedAsUnread(it.id, false) })
+                }, shapes = androidx.compose.material3.IconButtonDefaults.shapes()) {
+                    Icon(Icons.Rounded.DoneAll, stringResource(R.string.chat_mark_read))
+                }
+                androidx.compose.material3.IconButton(onClick = {
+                    run(rows.filter { it.kind != ChatKind.Saved }.map { TdApi.AddChatToList(it.id, if (archived) TdApi.ChatListMain() else TdApi.ChatListArchive()) })
+                }, shapes = androidx.compose.material3.IconButtonDefaults.shapes()) {
+                    Icon(Icons.Rounded.Archive, stringResource(if (archived) R.string.chat_unarchive else R.string.chat_archive))
+                }
                 androidx.compose.material3.IconButton(onClick = { run(rows.map { TdApi.ToggleChatIsPinned(listOf(it), it.id, !allPinned) }) }, shapes = androidx.compose.material3.IconButtonDefaults.shapes()) {
                     Icon(Icons.Rounded.PushPin, stringResource(if (allPinned) R.string.chat_unpin else R.string.chat_pin))
                 }
@@ -664,34 +668,6 @@ private fun androidx.compose.foundation.layout.BoxScope.ChatSelectionBars(graph:
                 androidx.compose.material3.IconButton(onClick = { confirmDelete = true }, shapes = androidx.compose.material3.IconButtonDefaults.shapes()) {
                     Icon(Icons.Rounded.Delete, stringResource(R.string.action_delete), tint = MaterialTheme.colorScheme.error)
                 }
-            }
-        }
-    }
-    androidx.compose.animation.AnimatedVisibility(
-        visible,
-        enter = androidx.compose.animation.slideInVertically(MaterialTheme.motionScheme.fastSpatialSpec()) { it } + androidx.compose.animation.fadeIn(),
-        exit = androidx.compose.animation.slideOutVertically(MaterialTheme.motionScheme.fastSpatialSpec()) { it } + androidx.compose.animation.fadeOut(),
-        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 16.dp + com.pixelgram.android.ui.components.LocalBottomBarPadding.current),
-    ) {
-        androidx.compose.material3.HorizontalFloatingToolbar(
-            expanded = true,
-            colors = androidx.compose.material3.FloatingToolbarDefaults.vibrantFloatingToolbarColors(),
-            modifier = Modifier.shadow(6.dp, androidx.compose.foundation.shape.CircleShape),
-        ) {
-            val toolbarText = androidx.compose.material3.ButtonDefaults.textButtonColors(contentColor = androidx.compose.material3.LocalContentColor.current)
-            androidx.compose.material3.TextButton(colors = toolbarText, onClick = {
-                run(rows.filter { it.lastMessageId != 0L }.map { TdApi.ViewMessages(it.id, longArrayOf(it.lastMessageId), null, true) } + rows.map { TdApi.ToggleChatIsMarkedAsUnread(it.id, false) })
-            }) {
-                Icon(Icons.Rounded.DoneAll, null, Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.chat_mark_read))
-            }
-            androidx.compose.material3.TextButton(colors = toolbarText, onClick = {
-                run(rows.filter { it.kind != ChatKind.Saved }.map { TdApi.AddChatToList(it.id, if (archived) TdApi.ChatListMain() else TdApi.ChatListArchive()) })
-            }) {
-                Icon(Icons.Rounded.Archive, null, Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(if (archived) R.string.chat_unarchive else R.string.chat_archive))
             }
         }
     }
