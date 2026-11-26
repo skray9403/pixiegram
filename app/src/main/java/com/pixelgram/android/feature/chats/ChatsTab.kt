@@ -669,7 +669,7 @@ private fun androidx.compose.foundation.layout.BoxScope.ChatSelectionBars(graph:
                     shapes = androidx.compose.material3.IconButtonDefaults.shapes(),
                 ) {
                     Icon(
-                        if (allHidden) androidx.compose.material.icons.Icons.Rounded.Visibility else androidx.compose.material.icons.Icons.Rounded.VisibilityOff,
+                        if (allHidden) androidx.compose.material.icons.rounded.Visibility else androidx.compose.material.icons.rounded.VisibilityOff,
                         if (allHidden) "Unhide chats" else "Hide chats",
                     )
                 }
@@ -1110,13 +1110,13 @@ private fun NewMessageSheet(graph: AppGraph, navigator: Navigator, onDismiss: ()
                 selected = !secretMode,
                 onClick = { secretMode = false },
                 label = { Text("Message") },
-                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null, Modifier.size(18.dp)) },
+                leadingIcon = { Icon(androidx.compose.material.icons.automirrored.rounded.Chat, null, Modifier.size(18.dp)) },
             )
             androidx.compose.material3.FilterChip(
                 selected = secretMode,
                 onClick = { secretMode = true },
                 label = { Text("Secret chat") },
-                leadingIcon = { Icon(Icons.Rounded.Lock, null, Modifier.size(18.dp)) },
+                leadingIcon = { Icon(androidx.compose.material.icons.rounded.Lock, null, Modifier.size(18.dp)) },
             )
         }
         if (secretMode) {
