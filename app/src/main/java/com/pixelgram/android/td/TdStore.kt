@@ -170,6 +170,9 @@ class TdStore(
         EmojiTaps.client = td
         scope.launch(worker) { td.updates.collect(::apply) }
         scope.launch(worker) { dirty.sample(50).collect { publish() } }
+        hiddenChats?.let { hidden ->
+            scope.launch(worker) { hidden.state.collect { touch() } }
+        }
     }
 
     private fun touch() {
