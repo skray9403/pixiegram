@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.Menu
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -50,6 +51,7 @@ import com.pixelgram.android.nav.Navigator
 import com.pixelgram.android.nav.PixelSettingsKey
 import com.pixelgram.android.nav.ProfileKey
 import com.pixelgram.android.nav.SettingsSectionKey
+import com.pixelgram.android.ui.components.FloatingMorphingNavigationDock
 import com.pixelgram.android.ui.components.Avatar
 import com.pixelgram.android.ui.components.HiddenPhone
 import com.pixelgram.android.ui.components.SegmentPosition
@@ -74,9 +76,15 @@ fun SettingsTab(graph: AppGraph, navigator: Navigator, onOpenDrawer: (() -> Unit
     var confirmLogout by remember { mutableStateOf(false) }
     var showQr by remember { mutableStateOf(false) }
     var hiddenChatsOpen by remember { mutableStateOf(false) }
+    var localSearchOpen by rememberSaveable { mutableStateOf(false) }
+    var localSearchQuery by rememberSaveable { mutableStateOf("") }
+    androidx.activity.compose.BackHandler(enabled = onBack != null && localSearchOpen) {
+        localSearchOpen = false
+        localSearchQuery = ""
+    }
     me?.username?.takeIf { showQr }?.let { name -> com.pixelgram.android.feature.profile.ProfileQrSheet(name) { showQr = false } }
     val pickAvatar = com.pixelgram.android.feature.profile.rememberAvatarPicker(graph)
-    val query = externalSearchQuery.trim()
+    val query = (if (onBack != null && localSearchOpen) localSearchQuery else externalSearchQuery).trim()
     val allSections = SettingsSection.entries
     val filteredSections = if (query.isEmpty()) allSections else allSections.filter { section ->
         val terms = when (section) {
@@ -91,7 +99,27 @@ fun SettingsTab(graph: AppGraph, navigator: Navigator, onOpenDrawer: (() -> Unit
         }
         section.name.contains(query, true) || terms.contains(query, true)
     }
-    Scaffold(contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0)) { padding ->
+    Scaffold(
+        contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0),
+        bottomBar = {
+            if (onBack != null) {
+                FloatingMorphingNavigationDock<Unit>(
+                    destinations = emptyList(),
+                    selected = Unit,
+                    onSelect = {},
+                    fabIcon = Icons.Rounded.Search,
+                    fabLabel = "Search settings",
+                    onFabClick = null,
+                    searchExpanded = localSearchOpen,
+                    searchQuery = localSearchQuery,
+                    searchPlaceholder = "Search settings",
+                    onSearchOpen = { localSearchOpen = true },
+                    onSearchQueryChange = { localSearchQuery = it },
+                    onSearchClose = { localSearchOpen = false; localSearchQuery = "" },
+                )
+            }
+        },
+    ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             com.pixelgram.android.feature.profile.ProfileHeader(
                 graph = graph,
