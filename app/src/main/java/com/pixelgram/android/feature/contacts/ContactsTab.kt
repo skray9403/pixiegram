@@ -44,7 +44,7 @@ import org.drinkless.tdlib.TdApi
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun ContactsTab(graph: AppGraph, navigator: Navigator, onOpenDrawer: (() -> Unit)?, onBack: (() -> Unit)? = null) {
+fun ContactsTab(graph: AppGraph, navigator: Navigator, onOpenDrawer: (() -> Unit)?, onBack: (() -> Unit)? = null, externalSearchQuery: String = "") {
     val snapshot by graph.store.snapshot.collectAsState()
     var ids by remember { mutableStateOf<List<Long>?>(null) }
     LaunchedEffect(Unit) { ids = runCatching { graph.td.send(TdApi.GetContacts()).userIds.toList() }.getOrDefault(emptyList()) }
@@ -64,7 +64,10 @@ fun ContactsTab(graph: AppGraph, navigator: Navigator, onOpenDrawer: (() -> Unit
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { LoadingIndicator() }
             return@Scaffold
         }
-        val users = list.mapNotNull { snapshot.users[it] }.sortedWith(compareByDescending<com.pixelgram.android.td.UserInfo> { it.online }.thenBy { it.name.lowercase() })
+        val query = externalSearchQuery.trim()
+        val users = list.mapNotNull { snapshot.users[it] }
+            .filter { query.isEmpty() || it.name.contains(query, ignoreCase = true) || it.username.orEmpty().contains(query, ignoreCase = true) }
+            .sortedWith(compareByDescending<com.pixelgram.android.td.UserInfo> { it.online }.thenBy { it.name.lowercase() })
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = padding.calculateTopPadding() + 4.dp, bottom = 8.dp + com.pixelgram.android.ui.components.LocalBottomBarPadding.current),
