@@ -43,10 +43,8 @@ fun PixelTheme(settings: AppearanceSettings, content: @Composable () -> Unit) {
         motionScheme = MotionScheme.expressive(),
     ) {
         val staticAvatarShape = settings.avatarShape.shape(settings.avatarCorner)
-        val kindShapes = remember(settings.kindShapes, settings.avatarShape, settings.avatarCorner) {
-            AvatarKinds.associateWith { kind ->
-                (settings.kindShapes[kind.name] ?: settings.avatarShape).shape(settings.avatarCorner)
-            }
+        val kindShapes = AvatarKinds.associateWith { kind ->
+            (settings.kindShapes[kind.name] ?: settings.avatarShape).shape(settings.avatarCorner)
         }
         CompositionLocalProvider(
             LocalMotionSpec provides MotionTokens.Default,
