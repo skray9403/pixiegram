@@ -48,6 +48,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -133,7 +134,7 @@ fun <K> FloatingMorphingNavigationDock(
                 (fadeOut() + shrinkHorizontally(spring(dampingRatio = 0.80f, stiffness = 1000f)))
         },
         label = "dock-search-morph",
-        modifier = modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 6.dp),
+        modifier = modifier.fillMaxWidth().navigationBarsPadding().then(if (searchExpanded) Modifier.imePadding() else Modifier).padding(horizontal = 16.dp, vertical = 6.dp),
     ) { searching ->
         if (searching) {
             Surface(
