@@ -253,6 +253,14 @@ private fun NotificationsSection(graph: AppGraph) {
         value = runCatching { graph.td.send(TdApi.GetScopeNotificationSettings(TdApi.NotificationSettingsScopeChannelChats())) }.getOrNull()
     }
     val appearance by graph.appearance.state.collectAsState()
+    var badgeIcon by rememberSaveable { mutableStateOf(true) }
+    var includeMuted by rememberSaveable { mutableStateOf(false) }
+    var countMessages by rememberSaveable { mutableStateOf(true) }
+    var inAppSounds by rememberSaveable { mutableStateOf(true) }
+    var inAppVibrate by rememberSaveable { mutableStateOf(true) }
+    var inAppPreview by rememberSaveable { mutableStateOf(true) }
+    var contactJoined by rememberSaveable { mutableStateOf(true) }
+    var pinnedMessages by rememberSaveable { mutableStateOf(true) }
 
     fun setScope(
         target: TdApi.NotificationSettingsScope,
@@ -272,9 +280,23 @@ private fun NotificationsSection(graph: AppGraph) {
         SettingsSwitch("Groups", (groupScope?.muteFor ?: 0) == 0, { setScope(TdApi.NotificationSettingsScopeGroupChats(), groupScope, it) }, SegmentPosition.Middle)
         SettingsSwitch("Channels", (channelScope?.muteFor ?: 0) == 0, { setScope(TdApi.NotificationSettingsScopeChannelChats(), channelScope, it) }, SegmentPosition.Bottom)
     }
-    SettingsGroup("In-app and badge preferences") {
-        SettingsSwitch("Keep-Alive Service", appearance.keepAlive, { graph.appearance.update { current -> current.copy(keepAlive = it) } }, SegmentPosition.Top, "Keep the background connection active for notifications")
-        SettingsSwitch("Smooth Transitions", appearance.smoothCursor, { graph.appearance.update { current -> current.copy(smoothCursor = it) } }, SegmentPosition.Bottom)
+    SettingsGroup("Badge Counter") {
+        SettingsSwitch("Show Badge Icon", badgeIcon, { badgeIcon = it }, SegmentPosition.Top)
+        SettingsSwitch("Include Muted Chats", includeMuted, { includeMuted = it }, SegmentPosition.Middle)
+        SettingsSwitch("Count Unread Messages", countMessages, { countMessages = it }, SegmentPosition.Bottom)
+    }
+    SettingsGroup("In-App Notifications") {
+        SettingsSwitch("Sounds", inAppSounds, { inAppSounds = it }, SegmentPosition.Top)
+        SettingsSwitch("Vibrate", inAppVibrate, { inAppVibrate = it }, SegmentPosition.Middle)
+        SettingsSwitch("Preview", inAppPreview, { inAppPreview = it }, SegmentPosition.Bottom)
+    }
+    SettingsGroup("Events and background") {
+        SettingsSwitch("Contact joined", contactJoined, { contactJoined = it }, SegmentPosition.Top)
+        SettingsSwitch("Pinned messages", pinnedMessages, { pinnedMessages = it }, SegmentPosition.Middle)
+        SettingsSwitch("Keep-Alive Service", appearance.keepAlive, { enabled -> graph.appearance.update { current -> current.copy(keepAlive = enabled) } }, SegmentPosition.Bottom, "Keep the background connection active for notifications")
+    }
+    SettingsGroup("Other appearance") {
+        SettingsSwitch("Smooth Transitions", appearance.smoothCursor, { enabled -> graph.appearance.update { current -> current.copy(smoothCursor = enabled) } }, SegmentPosition.Single)
     }
     SettingsGroup {
         SettingsItem(
@@ -311,6 +333,10 @@ private fun DataAndStorageSection(graph: AppGraph) {
     val roamingPreset by produceState<TdApi.AutoDownloadSettings?>(null, reload) {
         value = runCatching { graph.td.send(TdApi.GetAutoDownloadSettingsPresets()).low }.getOrNull()
     }
+    var savePrivate by rememberSaveable { mutableStateOf(false) }
+    var saveGroups by rememberSaveable { mutableStateOf(false) }
+    var saveChannels by rememberSaveable { mutableStateOf(false) }
+    var streamMedia by rememberSaveable { mutableStateOf(true) }
     val storageSize = storage?.let { Formatter.formatShortFileSize(context, it.size) } ?: "Calculating…"
     val networkBytes = network?.entries?.sumOf { entry ->
         when (entry) {
@@ -367,6 +393,14 @@ private fun DataAndStorageSection(graph: AppGraph) {
                 reload++
             }
         }, SegmentPosition.Bottom)
+    }
+    SettingsGroup("Save to Gallery") {
+        SettingsSwitch("Private Chats", savePrivate, { savePrivate = it }, SegmentPosition.Top)
+        SettingsSwitch("Groups", saveGroups, { saveGroups = it }, SegmentPosition.Middle)
+        SettingsSwitch("Channels", saveChannels, { saveChannels = it }, SegmentPosition.Bottom)
+    }
+    SettingsGroup("Streaming") {
+        SettingsSwitch("Stream Videos and Audio Files", streamMedia, { streamMedia = it }, SegmentPosition.Single)
     }
     SettingsGroup("Cloud drafts") {
         SettingsItem(
