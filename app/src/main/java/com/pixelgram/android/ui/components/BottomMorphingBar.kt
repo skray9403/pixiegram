@@ -183,7 +183,7 @@ private fun <K> MorphNavTabItem(
     )
     val ink by animateColorAsState(
         if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-        motion.micro,
+        spring(dampingRatio = 0.82f, stiffness = 900f),
         label = "nav_content_color",
     )
     Box(
