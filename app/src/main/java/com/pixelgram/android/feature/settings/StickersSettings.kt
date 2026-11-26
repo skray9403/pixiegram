@@ -103,16 +103,8 @@ fun StickersSettingsScreen(graph: AppGraph, navigator: Navigator) {
     val archived = archivedSets.size
     var showArchived by remember { mutableStateOf(false) }
     var showEmoji by remember { mutableStateOf(false) }
-    val collapse = androidx.compose.material3.TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
-        modifier = Modifier.nestedScroll(collapse.nestedScrollConnection),
-        topBar = {
-            androidx.compose.material3.MediumFlexibleTopAppBar(
-                scrollBehavior = collapse,
-                title = { Text(stringResource(R.string.stickers_title)) },
-                navigationIcon = { IconButton(onClick = navigator::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back)) } },
-            )
-        },
+        bottomBar = { com.pixelgram.android.ui.components.BottomSectionDock(title = stringResource(R.string.stickers_title), onBack = navigator::back) },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             SettingsGroup {
@@ -170,16 +162,8 @@ fun QuickReactionScreen(graph: AppGraph, navigator: Navigator) {
         value = sets.take(4).flatMap { info -> runCatching { graph.td.send(TdApi.GetStickerSet(info.id)).stickers.toList() }.getOrDefault(emptyList()) }.take(64)
     }
     val select: (String) -> Unit = { key -> graph.appearance.update { it.copy(doubleTapEmoji = key) } }
-    val collapse = androidx.compose.material3.TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
-        modifier = Modifier.nestedScroll(collapse.nestedScrollConnection),
-        topBar = {
-            androidx.compose.material3.MediumFlexibleTopAppBar(
-                scrollBehavior = collapse,
-                title = { Text(stringResource(R.string.stickers_quick_reaction)) },
-                navigationIcon = { IconButton(onClick = navigator::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back)) } },
-            )
-        },
+        bottomBar = { com.pixelgram.android.ui.components.BottomSectionDock(title = stringResource(R.string.stickers_quick_reaction), onBack = navigator::back) },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
             Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {

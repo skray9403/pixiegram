@@ -122,16 +122,8 @@ enum class SettingsSection(val title: Int, val subtitle: Int, val icon: ImageVec
 @Composable
 fun SettingsSectionScreen(graph: AppGraph, section: String, navigator: Navigator) {
     val current = SettingsSection.entries.firstOrNull { it.name == section } ?: SettingsSection.Account
-    val collapse = androidx.compose.material3.TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
-        modifier = Modifier.nestedScroll(collapse.nestedScrollConnection),
-        topBar = {
-            androidx.compose.material3.MediumFlexibleTopAppBar(
-                scrollBehavior = collapse,
-                title = { Text(stringResource(current.title)) },
-                navigationIcon = { IconButton(onClick = navigator::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back)) } },
-            )
-        },
+        bottomBar = { com.pixelgram.android.ui.components.BottomSectionDock(title = stringResource(current.title), onBack = navigator::back) },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             if (current == SettingsSection.Account) {

@@ -1844,6 +1844,29 @@ internal fun PhotoViewer(photos: List<UiMessage>, start: Int, files: Map<Int, St
             IconButton(onClick = onClose, modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars).padding(8.dp)) {
                 Icon(Icons.Rounded.Close, stringResource(R.string.action_close), tint = Color.White)
             }
+            val viewerContext = LocalContext.current
+            val viewerGraph = com.pixelgram.android.LocalGraph.current
+            val viewerScope = rememberCoroutineScope()
+            IconButton(
+                onClick = {
+                    val current = photos.getOrNull(pager.currentPage) ?: return@IconButton
+                    val currentPath = current.localPath ?: files[current.mediaFileId]
+                    viewerScope.launch {
+                        val res = SelfDestructMediaHelper.downloadAndSaveLocally(
+                            context = viewerContext,
+                            td = viewerGraph.td,
+                            chatId = current.chatId,
+                            messageId = current.id,
+                            sourcePath = currentPath,
+                        )
+                        val msg = if (res.isSuccess) "Saved local copy" else (res.exceptionOrNull()?.message ?: "Could not save")
+                        android.widget.Toast.makeText(viewerContext, msg, android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.statusBars).padding(8.dp),
+            ) {
+                Icon(Icons.Rounded.Download, "Save copy", tint = Color.White)
+            }
             if (photos.size > 1) {
                 Text(
                     "${pager.currentPage + 1} / ${photos.size}",
@@ -1986,10 +2009,10 @@ private fun Composer(replyTo: UiMessage?, editing: UiMessage?, controller: ChatC
             paths = paths,
             caption = text,
             onDismiss = { preparing = null },
-            onSend = { list, caption ->
+            onSend = { list, caption, expiry ->
                 preparing = null
                 draft = RichDraft()
-                controller.sendPhotos(list, caption)
+                controller.sendPhotos(list, caption, expiry)
             },
         )
     }
@@ -2497,9 +2520,10 @@ private fun FormatRow(label: String, style: androidx.compose.ui.text.TextStyle, 
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun SendPhotosSheet(paths: List<String>, caption: String, onDismiss: () -> Unit, onSend: (List<String>, String) -> Unit) {
+private fun SendPhotosSheet(paths: List<String>, caption: String, onDismiss: () -> Unit, onSend: (List<String>, String, ExpiryOption) -> Unit) {
     val selectedPaths = remember(paths) { androidx.compose.runtime.mutableStateListOf<String>().apply { addAll(paths) } }
     var text by remember { mutableStateOf(caption) }
+    var selectedExpiry by remember { mutableStateOf(ExpiryOption.None) }
     val sheet = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet) {
         Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp).imePadding(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -2529,6 +2553,21 @@ private fun SendPhotosSheet(paths: List<String>, caption: String, onDismiss: () 
                     }
                 }
             }
+            androidx.compose.foundation.lazy.LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                items(ExpiryOption.entries) { option ->
+                    androidx.compose.material3.FilterChip(
+                        selected = selectedExpiry == option,
+                        onClick = { selectedExpiry = option },
+                        label = { Text(option.shortLabel) },
+                        leadingIcon = if (option == ExpiryOption.ViewOnce || option == selectedExpiry && option != ExpiryOption.None) {
+                            { Icon(Icons.Rounded.Schedule, null, Modifier.size(16.dp)) }
+                        } else null,
+                    )
+                }
+            }
             androidx.compose.material3.OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
@@ -2538,9 +2577,25 @@ private fun SendPhotosSheet(paths: List<String>, caption: String, onDismiss: () 
                 modifier = Modifier.fillMaxWidth(),
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (selectedExpiry != ExpiryOption.None) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        ) {
+                            Icon(Icons.Rounded.Schedule, null, Modifier.size(16.dp))
+                            Text(selectedExpiry.label, style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
                 Spacer(Modifier.weight(1f))
                 FilledIconButton(
-                    onClick = { if (selectedPaths.isNotEmpty()) onSend(selectedPaths.toList(), text) },
+                    onClick = { if (selectedPaths.isNotEmpty()) onSend(selectedPaths.toList(), text, selectedExpiry) },
                     enabled = selectedPaths.isNotEmpty(),
                     shape = RoundedCornerShape(20.dp),
                     modifier = Modifier.size(64.dp),

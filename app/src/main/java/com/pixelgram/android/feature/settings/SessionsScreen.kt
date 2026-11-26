@@ -84,16 +84,8 @@ fun SessionsScreen(graph: AppGraph, navigator: Navigator) {
         scope.launch { sessions = runCatching { graph.td.send(TdApi.GetActiveSessions()).sessions.toList() }.getOrDefault(emptyList()) }
     }
     LaunchedEffect(Unit) { reload() }
-    val collapse = androidx.compose.material3.TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
-        modifier = Modifier.nestedScroll(collapse.nestedScrollConnection),
-        topBar = {
-            androidx.compose.material3.MediumFlexibleTopAppBar(
-                scrollBehavior = collapse,
-                title = { Text(stringResource(R.string.settings_devices)) },
-                navigationIcon = { IconButton(onClick = navigator::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back)) } },
-            )
-        },
+        bottomBar = { com.pixelgram.android.ui.components.BottomSectionDock(title = stringResource(R.string.settings_devices), onBack = navigator::back) },
     ) { padding ->
         val list = sessions
         if (list == null) {

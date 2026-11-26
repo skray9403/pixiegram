@@ -175,7 +175,7 @@ class TdStore(
         }
     }
 
-    private fun touch() {
+    fun touch() {
         dirty.value = dirty.value + 1
     }
 

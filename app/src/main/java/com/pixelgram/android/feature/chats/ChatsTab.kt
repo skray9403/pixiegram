@@ -202,7 +202,7 @@ fun ChatsTab(
     BackHandler(enabled = fabMenu) { fabMenu = false }
     LaunchedEffect(tracker.hidden) { if (tracker.hidden) fabMenu = false }
     if (newMessage) NewMessageSheet(graph, navigator) { newMessage = false }
-    if (hiddenChatsOpen) com.pixelgram.android.feature.security.TitanHiddenChatsDialog(graph) { graph.hiddenChats.lock(); hiddenChatsOpen = false }
+    if (hiddenChatsOpen) com.pixelgram.android.feature.security.HiddenChatsManagerSheet(graph) { hiddenChatsOpen = false }
     if (accountSheetOpen) {
         ModalBottomSheet(onDismissRequest = { accountSheetOpen = false }) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {

@@ -41,7 +41,12 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 enum class HiddenChatMode { ExcludeSelected, IncludeOnlySelected }
-data class TitanHiddenChatState(val unlocked: Boolean = false, val mode: HiddenChatMode = HiddenChatMode.ExcludeSelected, val selectedChatIds: Set<Long> = emptySet())
+data class TitanHiddenChatState(
+    val unlocked: Boolean = false,
+    val mode: HiddenChatMode = HiddenChatMode.ExcludeSelected,
+    val selectedChatIds: Set<Long> = emptySet(),
+    val strongBoxBacked: Boolean = false,
+)
 
 class TitanHiddenChats(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("titan_hidden_chats", Context.MODE_PRIVATE)
@@ -190,6 +195,58 @@ class TitanHiddenChats(context: Context) {
         if (!persist(HiddenConfig(current.mode, ids))) return false
         stateFlow.value = current.copy(selectedChatIds = ids)
         return true
+    }
+
+    fun toggleChat(chatId: Long): Boolean {
+        val current = stateFlow.value
+        return setSelected(chatId, chatId !in current.selectedChatIds)
+    }
+
+    fun prepareUnlockCipher(): Cipher {
+        val iv = prefs.getString(KEY_IV, null)
+        return try {
+            Cipher.getInstance("AES/GCM/NoPadding").apply {
+                if (iv == null) {
+                    init(Cipher.ENCRYPT_MODE, getOrCreateKey())
+                } else {
+                    init(
+                        Cipher.DECRYPT_MODE,
+                        getOrCreateKey(),
+                        GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)),
+                    )
+                }
+            }
+        } catch (_: Throwable) {
+            prefs.edit().putBoolean(KEY_FORCE_TEE, true).apply()
+            val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            if (store.containsAlias(KEY_ALIAS)) store.deleteEntry(KEY_ALIAS)
+            prefs.edit().remove(KEY_IV).remove(KEY_CIPHERTEXT).remove(KEY_HASHES).apply()
+            Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, getOrCreateKey()) }
+        }
+    }
+
+    fun markUnlocked(cipher: Cipher?) {
+        val strongBox = Build.VERSION.SDK_INT >= 28 && !prefs.getBoolean(KEY_FORCE_TEE, false)
+        val config = if (cipher != null) {
+            runCatching {
+                if (prefs.getString(KEY_CIPHERTEXT, null) == null) {
+                    HiddenConfig(stateFlow.value.mode, emptySet()).also { persist(it, cipher) }
+                } else {
+                    decode(cipher.doFinal(Base64.decode(prefs.getString(KEY_CIPHERTEXT, ""), Base64.NO_WRAP)).toString(Charsets.UTF_8))
+                }
+            }.getOrElse { HiddenConfig(stateFlow.value.mode, stateFlow.value.selectedChatIds) }
+        } else {
+            val mode = runCatching { HiddenChatMode.valueOf(prefs.getString(KEY_MODE, null) ?: "ExcludeSelected") }
+                .getOrDefault(HiddenChatMode.ExcludeSelected)
+            HiddenConfig(mode, stateFlow.value.selectedChatIds)
+        }
+        updateIndex(config)
+        stateFlow.value = TitanHiddenChatState(
+            unlocked = true,
+            mode = config.mode,
+            selectedChatIds = config.ids,
+            strongBoxBacked = strongBox,
+        )
     }
 
     private fun persist(config: HiddenConfig, authenticated: Cipher? = null): Boolean = runCatching {

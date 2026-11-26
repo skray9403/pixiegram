@@ -470,7 +470,7 @@ class ChatController(private val graph: AppGraph, val chatId: Long, val topicId:
         scope.launch { block() }
     }
 
-    private fun videoContent(path: String, caption: String): TdApi.InputMessageContent {
+    private fun videoContent(path: String, caption: String, expiry: ExpiryOption = ExpiryOption.None): TdApi.InputMessageContent {
         val retriever = android.media.MediaMetadataRetriever()
         var width = 0
         var height = 0
@@ -494,15 +494,16 @@ class ChatController(private val graph: AppGraph, val chatId: Long, val topicId:
                 supportsStreaming = true
             }
             this.caption = TdApi.FormattedText(caption, emptyArray())
+            selfDestructType = SelfDestructMediaHelper.toTdSelfDestruct(expiry)
         }
     }
 
-    fun sendPhotos(paths: List<String>, caption: String) {
+    fun sendPhotos(paths: List<String>, caption: String, expiry: ExpiryOption = ExpiryOption.None) {
         if (paths.isEmpty()) return
         val reply = ui.value.replyTo
         ui.value = ui.value.copy(replyTo = null)
         val contents = paths.mapIndexed { index, path ->
-            if (isVideoPath(path)) return@mapIndexed videoContent(path, if (index == 0) caption.trim() else "")
+            if (isVideoPath(path)) return@mapIndexed videoContent(path, if (index == 0) caption.trim() else "", expiry)
             val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
             runCatching { android.graphics.BitmapFactory.decodeFile(path, bounds) }
             TdApi.InputMessagePhoto().apply {
@@ -513,6 +514,7 @@ class ChatController(private val graph: AppGraph, val chatId: Long, val topicId:
                     height = bounds.outHeight.coerceAtLeast(0)
                 }
                 this.caption = TdApi.FormattedText(if (index == 0) caption.trim() else "", emptyArray())
+                selfDestructType = SelfDestructMediaHelper.toTdSelfDestruct(expiry)
             }
         }
         scope.launch {

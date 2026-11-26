@@ -42,12 +42,16 @@ fun PixelTheme(settings: AppearanceSettings, content: @Composable () -> Unit) {
         typography = typography,
         motionScheme = MotionScheme.expressive(),
     ) {
+        val staticAvatarShape = settings.avatarShape.shape(settings.avatarCorner)
+        val kindShapes = remember(settings.kindShapes, settings.avatarShape, settings.avatarCorner) {
+            AvatarKinds.associateWith { kind ->
+                (settings.kindShapes[kind.name] ?: settings.avatarShape).shape(settings.avatarCorner)
+            }
+        }
         CompositionLocalProvider(
             LocalMotionSpec provides MotionTokens.Default,
-            LocalAvatarShape provides animatedAvatarShape(settings.avatarShape, settings.avatarCorner),
-            LocalAvatarKindShapes provides AvatarKinds.associateWith { kind ->
-                androidx.compose.runtime.key(kind) { animatedAvatarShape(settings.kindShapes[kind.name] ?: settings.avatarShape, settings.avatarCorner) }
-            },
+            LocalAvatarShape provides staticAvatarShape,
+            LocalAvatarKindShapes provides kindShapes,
             LocalDarkTheme provides dark,
             LocalAppearance provides settings,
             content = content,

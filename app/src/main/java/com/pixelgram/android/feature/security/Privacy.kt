@@ -185,6 +185,7 @@ fun PrivacySection(graph: AppGraph, navigator: Navigator) {
     var showWebsites by remember { mutableStateOf(false) }
     var passcode by remember { mutableStateOf(false) }
     var hiddenChatsOpen by remember { mutableStateOf(false) }
+    val hiddenState by graph.hiddenChats.state.collectAsState()
     val on = stringResource(R.string.privacy_on)
     val off = stringResource(R.string.privacy_off)
     val value: @Composable (String) -> Unit = { text -> Text(text, color = MaterialTheme.colorScheme.primary, maxLines = 1) }
@@ -195,7 +196,19 @@ fun PrivacySection(graph: AppGraph, navigator: Navigator) {
         SettingsItem(stringResource(R.string.privacy_passcode), segmentPosition(2, 8), icon = Icons.Rounded.Lock, trailing = { value(if (PasscodeLock.enabled(context)) on else off) }, onClick = { passcode = true })
         SettingsItem(stringResource(R.string.privacy_blocked), segmentPosition(3, 8), icon = Icons.Rounded.Block, trailing = { value(blocked?.toString() ?: "…") }, onClick = { showBlocked = true })
         SettingsItem(stringResource(R.string.settings_devices), segmentPosition(4, 8), icon = Icons.Rounded.Devices, trailing = { value(sessions?.toString() ?: "…") }, onClick = { navigator.open(SessionsKey) })
-        SettingsItem("Hidden chats", segmentPosition(5, 8), icon = Icons.Rounded.Lock, subtitle = "Protect selected chats with biometrics or your device screen lock", onClick = { hiddenChatsOpen = true })
+        SettingsItem(
+            "Hidden chats",
+            segmentPosition(5, 8),
+            icon = Icons.Rounded.Lock,
+            subtitle = "Protect selected chats with biometrics or your device screen lock",
+            trailing = {
+                value(
+                    if (hiddenState.unlocked) "Unlocked · ${hiddenState.selectedChatIds.size} selected"
+                    else "Locked"
+                )
+            },
+            onClick = { hiddenChatsOpen = true },
+        )
         SettingsItem(stringResource(R.string.privacy_websites), segmentPosition(6, 8), icon = Icons.Rounded.Shield, onClick = { showWebsites = true })
         SettingsSwitch(stringResource(R.string.sensitive_setting), confirm, { v ->
             confirm = v
@@ -264,8 +277,7 @@ fun PrivacySection(graph: AppGraph, navigator: Navigator) {
     if (showBlocked) BlockedUsersDialog(graph, onDismiss = { showBlocked = false; reload++ })
     if (showWebsites) WebsitesDialog(graph) { showWebsites = false }
     if (passcode) PasscodeSettingsDialog { passcode = false }
-    if (hiddenChatsOpen) com.pixelgram.android.feature.security.TitanHiddenChatsDialog(graph) {
-        graph.hiddenChats.lock()
+    if (hiddenChatsOpen) HiddenChatsManagerSheet(graph) {
         hiddenChatsOpen = false
     }
 }

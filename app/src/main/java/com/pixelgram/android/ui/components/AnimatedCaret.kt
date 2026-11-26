@@ -78,8 +78,7 @@ fun AnimatedCaret(
     modifier: Modifier,
     trailJump: Long = 0L,
 ) {
-    if (settings.kittyCursor) TrailCaret(selection, layout, focused, settings, color, modifier, trailJump)
-    else LiquidCaret(selection, layout, focused, settings, color, modifier)
+    LiquidCaret(selection, layout, focused, settings, color, modifier)
 }
 
 @Composable

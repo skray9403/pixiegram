@@ -127,16 +127,8 @@ fun PixelSettingsScreen(graph: AppGraph, page: String, navigator: Navigator) {
         "about" -> stringResource(R.string.pixel_about)
         else -> stringResource(R.string.pixel_settings)
     }
-    val collapse = androidx.compose.material3.TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
-        modifier = Modifier.nestedScroll(collapse.nestedScrollConnection),
-        topBar = {
-            androidx.compose.material3.MediumFlexibleTopAppBar(
-                scrollBehavior = collapse,
-                title = { Text(title) },
-                navigationIcon = { IconButton(onClick = navigator::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back)) } },
-            )
-        },
+        bottomBar = { com.pixelgram.android.ui.components.BottomSectionDock(title = title, onBack = navigator::back) },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())) {
             when (page) {
@@ -962,37 +954,11 @@ private fun CursorSettings(settings: AppearanceSettings, update: ((AppearanceSet
         SettingsSwitch(stringResource(R.string.cursor_animated), settings.liquidCursor, { v -> update { it.copy(liquidCursor = v) } }, if (settings.liquidCursor) SegmentPosition.Top else SegmentPosition.Single, stringResource(R.string.cursor_animated_sub))
         androidx.compose.animation.AnimatedVisibility(settings.liquidCursor) {
             Column(verticalArrangement = Arrangement.spacedBy(androidx.compose.material3.ListItemDefaults.SegmentedGap)) {
-                androidx.compose.material3.SegmentedListItem(
-                    shapes = androidx.compose.material3.ListItemDefaults.segmentedShapes(1, 3),
-                    colors = com.pixelgram.android.ui.components.segmentedColors(),
-                    supportingContent = {
-                        Column {
-                            Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(androidx.compose.material3.ButtonGroupDefaults.ConnectedSpaceBetween)) {
-                                listOf(false to R.string.cursor_liquid, true to R.string.cursor_kitty).forEachIndexed { index, (kitty, label) ->
-                                    androidx.compose.material3.ToggleButton(
-                                        checked = settings.kittyCursor == kitty,
-                                        onCheckedChange = { update { s -> s.copy(kittyCursor = kitty) } },
-                                        colors = androidx.compose.material3.ToggleButtonDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest),
-                                        shapes = if (index == 0) androidx.compose.material3.ButtonGroupDefaults.connectedLeadingButtonShapes() else androidx.compose.material3.ButtonGroupDefaults.connectedTrailingButtonShapes(),
-                                        modifier = Modifier.weight(1f),
-                                    ) { Text(stringResource(label)) }
-                                }
-                            }
-                            Text(stringResource(if (settings.kittyCursor) R.string.cursor_kitty_sub else R.string.cursor_liquid_sub), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 6.dp))
-                        }
-                    },
-                ) { Text(stringResource(R.string.cursor_style)) }
-                if (!settings.kittyCursor) {
-                    SettingsSwitch(stringResource(R.string.cursor_smooth), settings.smoothCursor, { v -> update { it.copy(smoothCursor = v) } }, SegmentPosition.Middle, stringResource(R.string.cursor_smooth_sub))
-                    CursorSlider(stringResource(R.string.cursor_stretch), settings.cursorStretch, 0..100, "", default = SliderDefaults.cursorStretch) { v -> update { it.copy(cursorStretch = v) } }
-                    CursorSlider(stringResource(R.string.cursor_handle), settings.handleStretch, 0..100, "%", default = SliderDefaults.handleStretch) { v -> update { it.copy(handleStretch = v) } }
-                    CursorSlider(stringResource(R.string.cursor_pull), settings.sidePull, 0..100, "%", default = SliderDefaults.sidePull) { v -> update { it.copy(sidePull = v) } }
-                    CursorSlider(stringResource(R.string.cursor_speed), settings.cursorSpeed, 1..100, "", default = SliderDefaults.cursorSpeed) { v -> update { it.copy(cursorSpeed = v) } }
-                } else {
-                    CursorSlider(stringResource(R.string.cursor_trail_front), settings.trailFast, 20..500, " ms", 10, default = SliderDefaults.trailFast) { v -> update { it.copy(trailFast = v) } }
-                    CursorSlider(stringResource(R.string.cursor_trail_end), settings.trailSlow, 50..1000, " ms", 10, default = SliderDefaults.trailSlow) { v -> update { it.copy(trailSlow = v) } }
-                    CursorSlider(stringResource(R.string.cursor_trail_start), settings.trailThreshold, 0..10, "", default = SliderDefaults.trailThreshold) { v -> update { it.copy(trailThreshold = v) } }
-                }
+                SettingsSwitch(stringResource(R.string.cursor_smooth), settings.smoothCursor, { v -> update { it.copy(smoothCursor = v) } }, SegmentPosition.Middle, stringResource(R.string.cursor_smooth_sub))
+                CursorSlider(stringResource(R.string.cursor_stretch), settings.cursorStretch, 0..100, "", default = SliderDefaults.cursorStretch) { v -> update { it.copy(cursorStretch = v) } }
+                CursorSlider(stringResource(R.string.cursor_handle), settings.handleStretch, 0..100, "%", default = SliderDefaults.handleStretch) { v -> update { it.copy(handleStretch = v) } }
+                CursorSlider(stringResource(R.string.cursor_pull), settings.sidePull, 0..100, "%", default = SliderDefaults.sidePull) { v -> update { it.copy(sidePull = v) } }
+                CursorSlider(stringResource(R.string.cursor_speed), settings.cursorSpeed, 1..100, "", default = SliderDefaults.cursorSpeed) { v -> update { it.copy(cursorSpeed = v) } }
                 SettingsSwitch(stringResource(R.string.cursor_blink), settings.cursorBlink, { v -> update { it.copy(cursorBlink = v) } }, SegmentPosition.Middle)
                 CursorSlider(stringResource(R.string.cursor_width), settings.cursorWidth, 1..6, " dp", default = SliderDefaults.cursorWidth) { v -> update { it.copy(cursorWidth = v) } }
                 CursorSlider(stringResource(R.string.cursor_blink_cycle), settings.blinkCycle, 300..2000, " ms", 100, default = SliderDefaults.blinkCycle) { v -> update { it.copy(blinkCycle = v) } }
