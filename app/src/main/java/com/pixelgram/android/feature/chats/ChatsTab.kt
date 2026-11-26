@@ -366,11 +366,6 @@ fun ChatsTab(
                         }
                     },
                     actions = {
-                        val lockContext = androidx.compose.ui.platform.LocalContext.current
-                        val lockOn = remember(com.pixelgram.android.feature.security.PasscodeLock.revision) { com.pixelgram.android.feature.security.PasscodeLock.enabled(lockContext) }
-                        if (lockOn && !archive) {
-                            IconButton(onClick = { com.pixelgram.android.feature.security.PasscodeLock.lockNow(lockContext) }) { Icon(Icons.Rounded.LockOpen, stringResource(R.string.passcode_lock_now)) }
-                        }
                         if (!archive) {
                             IconButton(onClick = { accountSheetOpen = true }) {
                                 if (me != null) Avatar(
