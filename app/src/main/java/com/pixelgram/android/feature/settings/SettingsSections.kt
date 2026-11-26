@@ -1,6 +1,7 @@
 package com.pixelgram.android.feature.settings
 
 import com.pixelgram.android.ui.components.SettingsSwitch
+import com.pixelgram.android.feature.security.PrivacySection
 
 import androidx.compose.ui.platform.LocalContext
 
