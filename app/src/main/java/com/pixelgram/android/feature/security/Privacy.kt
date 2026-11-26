@@ -184,21 +184,23 @@ fun PrivacySection(graph: AppGraph, navigator: Navigator) {
     var showBlocked by remember { mutableStateOf(false) }
     var showWebsites by remember { mutableStateOf(false) }
     var passcode by remember { mutableStateOf(false) }
+    var hiddenChatsOpen by remember { mutableStateOf(false) }
     val on = stringResource(R.string.privacy_on)
     val off = stringResource(R.string.privacy_off)
     val value: @Composable (String) -> Unit = { text -> Text(text, color = MaterialTheme.colorScheme.primary, maxLines = 1) }
 
     SettingsGroup(stringResource(R.string.section_security)) {
-        SettingsItem(stringResource(R.string.privacy_2fa), segmentPosition(0, 7), icon = Icons.Rounded.VerifiedUser, trailing = { value(if (password?.hasPassword == true) on else off) }, onClick = {})
-        SettingsItem(stringResource(R.string.privacy_auto_delete), segmentPosition(1, 7), icon = Icons.Rounded.Timer, trailing = { value(autoDeleteLabel(autoDelete ?: 0)) }, onClick = { pickAutoDelete = true })
-        SettingsItem(stringResource(R.string.privacy_passcode), segmentPosition(2, 7), icon = Icons.Rounded.Lock, trailing = { value(if (PasscodeLock.enabled(context)) on else off) }, onClick = { passcode = true })
-        SettingsItem(stringResource(R.string.privacy_blocked), segmentPosition(3, 7), icon = Icons.Rounded.Block, trailing = { value(blocked?.toString() ?: "…") }, onClick = { showBlocked = true })
-        SettingsItem(stringResource(R.string.settings_devices), segmentPosition(4, 7), icon = Icons.Rounded.Devices, trailing = { value(sessions?.toString() ?: "…") }, onClick = { navigator.open(SessionsKey) })
-        SettingsItem(stringResource(R.string.privacy_websites), segmentPosition(5, 7), icon = Icons.Rounded.Shield, onClick = { showWebsites = true })
+        SettingsItem(stringResource(R.string.privacy_2fa), segmentPosition(0, 8), icon = Icons.Rounded.VerifiedUser, trailing = { value(if (password?.hasPassword == true) on else off) }, onClick = {})
+        SettingsItem(stringResource(R.string.privacy_auto_delete), segmentPosition(1, 8), icon = Icons.Rounded.Timer, trailing = { value(autoDeleteLabel(autoDelete ?: 0)) }, onClick = { pickAutoDelete = true })
+        SettingsItem(stringResource(R.string.privacy_passcode), segmentPosition(2, 8), icon = Icons.Rounded.Lock, trailing = { value(if (PasscodeLock.enabled(context)) on else off) }, onClick = { passcode = true })
+        SettingsItem(stringResource(R.string.privacy_blocked), segmentPosition(3, 8), icon = Icons.Rounded.Block, trailing = { value(blocked?.toString() ?: "…") }, onClick = { showBlocked = true })
+        SettingsItem(stringResource(R.string.settings_devices), segmentPosition(4, 8), icon = Icons.Rounded.Devices, trailing = { value(sessions?.toString() ?: "…") }, onClick = { navigator.open(SessionsKey) })
+        SettingsItem("Hidden chats", segmentPosition(5, 8), icon = Icons.Rounded.Lock, subtitle = "Protect selected chats with biometrics or your device screen lock", onClick = { hiddenChatsOpen = true })
+        SettingsItem(stringResource(R.string.privacy_websites), segmentPosition(6, 8), icon = Icons.Rounded.Shield, onClick = { showWebsites = true })
         SettingsSwitch(stringResource(R.string.sensitive_setting), confirm, { v ->
             confirm = v
             SensitiveRequests.setEnabled(context, v)
-        }, segmentPosition(6, 7), stringResource(R.string.sensitive_setting_sub))
+        }, segmentPosition(7, 8), stringResource(R.string.sensitive_setting_sub))
     }
     SettingsGroup(stringResource(R.string.privacy_title)) {
         Kinds.forEachIndexed { i, kind ->
@@ -262,6 +264,10 @@ fun PrivacySection(graph: AppGraph, navigator: Navigator) {
     if (showBlocked) BlockedUsersDialog(graph, onDismiss = { showBlocked = false; reload++ })
     if (showWebsites) WebsitesDialog(graph) { showWebsites = false }
     if (passcode) PasscodeSettingsDialog { passcode = false }
+    if (hiddenChatsOpen) com.pixelgram.android.feature.security.TitanHiddenChatsDialog(graph) {
+        graph.hiddenChats.lock()
+        hiddenChatsOpen = false
+    }
 }
 
 @Composable
