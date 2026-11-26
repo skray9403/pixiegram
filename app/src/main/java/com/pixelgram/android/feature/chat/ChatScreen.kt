@@ -238,6 +238,7 @@ fun ChatScreen(graph: AppGraph, chatId: Long, navigator: Navigator, topicId: Int
     var menuFor by remember { mutableStateOf<UiMessage?>(null) }
     var menuAnchor by remember { mutableStateOf(androidx.compose.ui.geometry.Rect.Zero) }
     var selected by remember(chatId) { mutableStateOf<List<UiMessage>>(emptyList()) }
+    var expiryTimerOpen by remember { mutableStateOf(false) }
     val toggleSelected: (UiMessage) -> Unit = { m -> selected = if (selected.any { it.id == m.id }) selected.filterNot { it.id == m.id } else selected + m }
     var dragAnchor by remember { mutableStateOf<Long?>(null) }
     val chatHaptic = LocalHapticFeedback.current
@@ -396,6 +397,8 @@ fun ChatScreen(graph: AppGraph, chatId: Long, navigator: Navigator, topicId: Int
                 isScrolled = isScrolled,
                 onOpenProfile = openChatDetails,
                 onSearch = { navigator.open(com.pixelgram.android.nav.SearchKey) },
+                showExpiryTimer = chat?.type is TdApi.ChatTypeSecret,
+                onExpiryTimer = { expiryTimerOpen = true },
             ) {
                 TopAppBar(
                 title = {
@@ -446,6 +449,11 @@ fun ChatScreen(graph: AppGraph, chatId: Long, navigator: Navigator, topicId: Int
                     IconButton(onClick = navigator::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back)) }
                 },
                 actions = {
+                    if (chat?.type is TdApi.ChatTypeSecret) {
+                        IconButton(onClick = { expiryTimerOpen = true }, modifier = Modifier.size(44.dp)) {
+                            Icon(Icons.Rounded.Schedule, "Self-destruct timer")
+                        }
+                    }
                     IconButton(onClick = { navigator.open(if (saved) com.pixelgram.android.nav.SavedKey else ProfileKey(privateUserId, chatId)) }, modifier = Modifier.size(48.dp)) {
                         Avatar(
                             title = ui.title,
@@ -837,6 +845,14 @@ fun ChatScreen(graph: AppGraph, chatId: Long, navigator: Navigator, topicId: Int
                 if (target != chatId) navigator.open(ChatKey(target))
             },
             onDismiss = { forwarding = null },
+        )
+    }
+    if (expiryTimerOpen && chat?.type is TdApi.ChatTypeSecret) {
+        SelfDestructTimerSheet(
+            graph = graph,
+            chatId = chatId,
+            currentSeconds = chat.messageAutoDeleteTime,
+            onDismiss = { expiryTimerOpen = false },
         )
     }
     shooting?.let { list ->
@@ -2091,11 +2107,11 @@ private fun Composer(replyTo: UiMessage?, editing: UiMessage?, controller: ChatC
                 draft = RichDraft()
             }
             sendDraftHolder.value = sendDraft
-            Row(Modifier.padding(if (telegramStyle) PaddingValues(horizontal = 8.dp, vertical = 6.dp) else PaddingValues(8.dp)), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(if (telegramStyle) 6.dp else 8.dp)) {
+            Row(Modifier.padding(if (telegramStyle) PaddingValues(horizontal = 8.dp, vertical = 6.dp) else PaddingValues(horizontal = 12.dp, vertical = 6.dp)), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(if (telegramStyle) 6.dp else 8.dp)) {
                 Surface(
                     shape = if (telegramStyle) CircleShape else RoundedCornerShape(28.dp),
-                    color = if (telegramStyle) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainerHighest,
-                    modifier = Modifier.weight(1f).heightIn(min = if (telegramStyle) 48.dp else 56.dp).animateContentSize(MaterialTheme.motionScheme.fastSpatialSpec())
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp).animateContentSize(MaterialTheme.motionScheme.fastSpatialSpec())
                         .graphicsLayer {
                             val eaten = if (voice.active && !voice.locked) (-voice.drag - EatStart.toPx()).coerceAtLeast(0f) else 0f
                             if (eaten > 0f) {
@@ -2193,7 +2209,7 @@ private fun Composer(replyTo: UiMessage?, editing: UiMessage?, controller: ChatC
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                                 capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
                             ),
-                            modifier = Modifier.weight(1f).heightIn(max = 176.dp).verticalScroll(fieldScroll).padding(vertical = if (telegramStyle) 12.dp else 16.dp).then(Modifier.bringIntoViewRequester(caretRequester)).focusRequester(focus).onFocusChanged { fieldFocused = it.isFocused },
+                            modifier = Modifier.weight(1f).heightIn(max = 176.dp).verticalScroll(fieldScroll).padding(vertical = 12.dp).then(Modifier.bringIntoViewRequester(caretRequester)).focusRequester(focus).onFocusChanged { fieldFocused = it.isFocused },
                             decorationBox = { inner ->
                                 Box {
                                     if (text.isEmpty() && price > 0L) Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2279,7 +2295,7 @@ private fun Composer(replyTo: UiMessage?, editing: UiMessage?, controller: ChatC
                     }
                 }
                 val ready = text.isNotBlank() || forward != null
-                val corner by androidx.compose.animation.core.animateDpAsState(if (ready) 18.dp else 28.dp, MaterialTheme.motionScheme.fastSpatialSpec(), label = "send")
+                val corner by androidx.compose.animation.core.animateDpAsState(if (ready) 16.dp else 24.dp, MaterialTheme.motionScheme.fastSpatialSpec(), label = "send")
                 val spatialSend = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
                 val effectsSend = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
                 androidx.compose.animation.AnimatedContent(
@@ -2294,7 +2310,7 @@ private fun Composer(replyTo: UiMessage?, editing: UiMessage?, controller: ChatC
                     if (showVoice) VoiceButton(
                         recorder = voice,
                         video = videoMode,
-                        size = if (telegramStyle) 48.dp else 56.dp,
+                        size = 48.dp,
                         telegram = telegramStyle,
                         hasPermission = {
                             val mic = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
@@ -2308,7 +2324,7 @@ private fun Composer(replyTo: UiMessage?, editing: UiMessage?, controller: ChatC
                         },
                     ) else Box(
                         contentAlignment = Alignment.Center,
-                        modifier = Modifier.size(if (telegramStyle) 48.dp else 56.dp).clip(if (telegramStyle) CircleShape else RoundedCornerShape(corner)).background(MaterialTheme.colorScheme.primary).combinedClickable(
+                        modifier = Modifier.size(48.dp).clip(if (telegramStyle) CircleShape else RoundedCornerShape(corner)).background(MaterialTheme.colorScheme.primary).combinedClickable(
                             enabled = ready,
                             onLongClick = if (editing == null) ({
                                 sendHaptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
@@ -2815,6 +2831,78 @@ private fun DeleteDialog(messages: List<UiMessage>, controller: ChatController, 
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
+private fun SelfDestructTimerSheet(
+    graph: AppGraph,
+    chatId: Long,
+    currentSeconds: Int,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var saving by remember { mutableStateOf(false) }
+    val options = listOf(
+        0 to "Off",
+        1 to "1 second",
+        5 to "5 seconds",
+        30 to "30 seconds",
+        60 to "1 minute",
+        3_600 to "1 hour",
+        86_400 to "1 day",
+        604_800 to "1 week",
+    )
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = { if (!saving) onDismiss() },
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text("Self-destruct timer", style = MaterialTheme.typography.titleLargeEmphasized)
+            Text(
+                "The countdown starts after a message is viewed.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            options.forEach { (seconds, label) ->
+                ListItem(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(18.dp))
+                        .clickable(enabled = !saving) {
+                            scope.launch {
+                                saving = true
+                                runCatching {
+                                    graph.td.send(TdApi.SetChatMessageAutoDeleteTime(chatId, seconds))
+                                }.onSuccess {
+                                    onDismiss()
+                                }.onFailure { error ->
+                                    saving = false
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        error.message ?: "Could not update the timer",
+                                        android.widget.Toast.LENGTH_LONG,
+                                    ).show()
+                                }
+                            }
+                        },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    headlineContent = { Text(label) },
+                    trailingContent = {
+                        androidx.compose.material3.RadioButton(
+                            selected = currentSeconds == seconds,
+                            onClick = null,
+                            enabled = !saving,
+                        )
+                    },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+@Composable
 private fun SelectionTopBar(
     count: Int,
     canEdit: Boolean,
@@ -2828,6 +2916,13 @@ private fun SelectionTopBar(
 ) {
     val editable by androidx.compose.runtime.produceState(false, first.id, canEdit) { value = canEdit && controller.canEdit(first) }
     TopAppBar(
+        modifier = Modifier
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .clip(CircleShape)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
+        colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
         navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, stringResource(R.string.action_cancel)) } },
         title = {
             androidx.compose.animation.AnimatedContent(count, label = "selected-count") { n ->
@@ -2846,31 +2941,41 @@ private fun SelectionTopBar(
 @OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun SelectionBottomBar(canReply: Boolean, onReply: () -> Unit, onForward: () -> Unit) {
-    Row(
-        Modifier
+    androidx.compose.material3.Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shadowElevation = 3.dp,
+        modifier = Modifier
             .fillMaxWidth()
             .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.navigationBars)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
     ) {
-        androidx.compose.material3.FilledTonalButton(
-            onClick = onReply,
-            enabled = canReply,
-            shapes = androidx.compose.material3.ButtonDefaults.shapes(),
-            modifier = Modifier.weight(1f).height(56.dp),
+        Row(
+            Modifier.padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(stringResource(R.string.action_reply))
-            Spacer(Modifier.width(8.dp))
-            Icon(Icons.AutoMirrored.Rounded.Reply, null)
-        }
-        androidx.compose.material3.FilledTonalButton(
-            onClick = onForward,
-            shapes = androidx.compose.material3.ButtonDefaults.shapes(),
-            modifier = Modifier.weight(1f).height(56.dp),
-        ) {
-            Icon(Icons.AutoMirrored.Rounded.Forward, null)
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.action_forward))
+            androidx.compose.material3.FilledTonalButton(
+                onClick = onReply,
+                enabled = canReply,
+                shapes = androidx.compose.material3.ButtonDefaults.shapes(),
+                contentPadding = PaddingValues(horizontal = 14.dp),
+                modifier = Modifier.weight(1f).height(44.dp),
+            ) {
+                Icon(Icons.AutoMirrored.Rounded.Reply, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.action_reply))
+            }
+            androidx.compose.material3.FilledTonalButton(
+                onClick = onForward,
+                shapes = androidx.compose.material3.ButtonDefaults.shapes(),
+                contentPadding = PaddingValues(horizontal = 14.dp),
+                modifier = Modifier.weight(1f).height(44.dp),
+            ) {
+                Icon(Icons.AutoMirrored.Rounded.Forward, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.action_forward))
+            }
         }
     }
 }
@@ -4029,6 +4134,8 @@ private fun ChatAdaptiveTopBar(
     isScrolled: Boolean,
     onOpenProfile: () -> Unit,
     onSearch: () -> Unit,
+    showExpiryTimer: Boolean,
+    onExpiryTimer: () -> Unit,
     expandedContent: @Composable () -> Unit,
 ) {
     val motion = LocalMotionSpec.current
@@ -4092,6 +4199,11 @@ private fun ChatAdaptiveTopBar(
                             text = { Text(stringResource(R.string.tab_profile)) },
                             leadingIcon = { Icon(androidx.compose.material.icons.Icons.Rounded.Person, null) },
                             onClick = { menuExpanded = false; onOpenProfile() },
+                        )
+                        if (showExpiryTimer) DropdownMenuItem(
+                            text = { Text("Self-destruct timer") },
+                            leadingIcon = { Icon(Icons.Rounded.Schedule, null) },
+                            onClick = { menuExpanded = false; onExpiryTimer() },
                         )
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.search_chats)) },
