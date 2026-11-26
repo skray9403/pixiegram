@@ -103,8 +103,14 @@ class Navigator(private val stack: MutableList<NavKey>) {
         }
     }
 
-    fun toChat(chatId: Long) {
-        if (stack.size >= 2 && stack[stack.lastIndex - 1] == ChatKey(chatId)) back() else open(ChatKey(chatId))
+    fun toChat(chatId: Long, returnChatId: Long? = null) {
+        if (returnChatId != null && returnChatId != 0L) {
+            open(ChatKey(chatId = chatId, returnChatId = returnChatId))
+        } else if (stack.size >= 2 && stack[stack.lastIndex - 1] == ChatKey(chatId)) {
+            back()
+        } else {
+            open(ChatKey(chatId))
+        }
     }
 }
 
