@@ -135,6 +135,7 @@ fun MainShell(graph: AppGraph, navigator: Navigator) {
                         graph = graph,
                         navigator = navigator,
                         onOpenDrawer = null,
+                        externalSearchQuery = if (tab == MainTab.Contacts && searchExpanded) searchQuery else "",
                     )
                     MainTab.Settings -> SettingsTab(
                         graph = graph,
