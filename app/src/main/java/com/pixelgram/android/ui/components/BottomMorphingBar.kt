@@ -2,7 +2,7 @@ package com.pixelgram.android.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.Badge
@@ -69,22 +68,28 @@ fun <K> FloatingMorphingNavigationDock(
     selected: K,
     onSelect: (K) -> Unit,
     modifier: Modifier = Modifier,
-    inset: Dp = 8.dp,
-    spacing: Dp = 4.dp,
-    height: Dp = 64.dp,
-    isFabCollapsed: Boolean = false,
-    fabLabel: String = "New",
+    inset: Dp = 5.dp,
+    spacing: Dp = 2.dp,
+    height: Dp = 50.dp,
+    isFabCollapsed: Boolean = true,
+    fabLabel: String = "Search",
     fabIcon: ImageVector = Icons.Outlined.Add,
     onFabClick: (() -> Unit)? = null,
 ) {
+    val cappedDestinations = remember(destinations) { destinations.take(3) }
     val motion = com.pixelgram.android.ui.theme.LocalMotionSpec.current
     val haptics = LocalHapticFeedback.current
     var dragPx by remember { mutableFloatStateOf(0f) }
-    val activeIndex = destinations.indexOfFirst { it.key == selected }.coerceAtLeast(0)
-    val itemHeight = (height - inset * 2).coerceAtLeast(44.dp)
+    val activeIndex = cappedDestinations.indexOfFirst { it.key == selected }.coerceAtLeast(0)
+    val itemHeight = (height - inset * 2).coerceAtLeast(38.dp)
+    val fastSpring = spring<Float>(dampingRatio = 0.84f, stiffness = 950f)
+
     Row(
-        modifier = modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
@@ -93,10 +98,12 @@ fun <K> FloatingMorphingNavigationDock(
             shape = CircleShape,
             tonalElevation = 0.dp,
             shadowElevation = 0.dp,
-            modifier = Modifier.weight(1f).height(height)
+            modifier = Modifier
+                .weight(1f)
+                .height(height)
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                .pointerInput(destinations.size, selected) {
-                    val threshold = 56.dp.toPx()
+                .pointerInput(cappedDestinations.size, selected) {
+                    val threshold = 40.dp.toPx()
                     detectHorizontalDragGestures(
                         onDragStart = { dragPx = 0f },
                         onDragEnd = { dragPx = 0f },
@@ -104,120 +111,147 @@ fun <K> FloatingMorphingNavigationDock(
                         onHorizontalDrag = { change, delta ->
                             change.consume()
                             dragPx += delta
-                            if (dragPx <= -threshold && activeIndex < destinations.lastIndex) {
+                            if (dragPx <= -threshold && activeIndex < cappedDestinations.lastIndex) {
                                 dragPx = 0f
                                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onSelect(destinations[activeIndex + 1].key)
+                                onSelect(cappedDestinations[activeIndex + 1].key)
                             } else if (dragPx >= threshold && activeIndex > 0) {
                                 dragPx = 0f
                                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onSelect(destinations[activeIndex - 1].key)
+                                onSelect(cappedDestinations[activeIndex - 1].key)
                             }
                         },
                     )
                 },
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = inset),
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = inset),
                 horizontalArrangement = Arrangement.spacedBy(spacing),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                destinations.forEach { destination ->
-                    val chosen = destination.key == selected
-                    MorphNavTabItem(
-                        destination = destination,
-                        selected = chosen,
-                        onClick = {
-                            if (!chosen) {
-                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                onSelect(destination.key)
-                            }
-                        },
-                        modifier = Modifier.weight(if (chosen) 1.45f else 1f).height(itemHeight)
-                            .animateContentSize(animationSpec = motion.spatialSize),
+                cappedDestinations.forEachIndexed { index, dest ->
+                    val isSelected = index == activeIndex
+                    val pillColor by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                        animationSpec = spring(dampingRatio = 0.82f, stiffness = 900f),
+                        label = "dock-pill",
                     )
-                }
-            }
-        }
-        if (onFabClick != null) {
-            val corner by animateDpAsState(if (isFabCollapsed) 28.dp else 20.dp, if (isFabCollapsed) motion.dismissDp else motion.spatialDp, label = "dock_fab_corner")
-            val scale by animateFloatAsState(if (isFabCollapsed) 0.96f else 1f, motion.micro, label = "dock_fab_scale")
-            Row(
-                modifier = Modifier.height(height).graphicsLayer { scaleX = scale; scaleY = scale }
-                    .clip(RoundedCornerShape(corner)).background(MaterialTheme.colorScheme.primary)
-                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(corner))
-                    .animateContentSize(animationSpec = motion.spatialSize)
-                    .clickable { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onFabClick() }
-                    .padding(horizontal = if (isFabCollapsed) 18.dp else 20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                Icon(fabIcon, fabLabel, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(22.dp))
-                AnimatedVisibility(
-                    visible = !isFabCollapsed,
-                    enter = expandHorizontally(animationSpec = motion.spatialSize) + fadeIn(animationSpec = motion.micro),
-                    exit = shrinkHorizontally(animationSpec = motion.dismissSize) + fadeOut(animationSpec = motion.micro),
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Spacer(Modifier.width(8.dp))
-                        Text(fabLabel, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimary, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            }
-        }
-    }
-}
+                    val contentColor by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                        animationSpec = spring(dampingRatio = 0.82f, stiffness = 900f),
+                        label = "dock-fg",
+                    )
+                    val iconScale by animateFloatAsState(
+                        targetValue = if (isSelected) 1.05f else 1f,
+                        animationSpec = fastSpring,
+                        label = "dock-scale",
+                    )
+                    val padH by animateDpAsState(
+                        targetValue = if (isSelected) 12.dp else 8.dp,
+                        animationSpec = motion.spatialDp,
+                        label = "dock-pad",
+                    )
 
-@Composable
-private fun <K> MorphNavTabItem(
-    destination: MorphNavDestination<K>,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val motion = com.pixelgram.android.ui.theme.LocalMotionSpec.current
-    val pill by animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
-        spring(dampingRatio = 0.64f, stiffness = 320f),
-        label = "nav_pill_color",
-    )
-    val ink by animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
-        spring(dampingRatio = 0.82f, stiffness = 900f),
-        label = "nav_content_color",
-    )
-    Box(
-        modifier = modifier.clip(CircleShape).background(pill).clickable(onClick = onClick)
-            .padding(horizontal = if (selected) 14.dp else 10.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-            BadgedBox(
-                badge = {
-                    if (destination.badge > 0) Badge {
-                        AnimatedCounter(
-                            destination.badge,
-                            androidx.compose.material3.LocalTextStyle.current,
-                            format = { n -> com.pixelgram.android.ui.theme.countLabel(n, com.pixelgram.android.ui.theme.LocalAppearance.current.exactNumbers) },
-                        )
+                    Row(
+                        modifier = Modifier
+                            .weight(if (isSelected) 1.2f else 1f)
+                            .height(itemHeight)
+                            .clip(CircleShape)
+                            .background(pillColor)
+                            .clickable(
+                                onClick = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    onSelect(dest.key)
+                                },
+                            )
+                            .padding(horizontal = padH),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(modifier = Modifier.graphicsLayer { scaleX = iconScale; scaleY = iconScale }) {
+                            if (dest.badge > 0) {
+                                BadgedBox(badge = { Badge { Text(if (dest.badge > 99) "99+" else dest.badge.toString()) } }) {
+                                    Icon(
+                                        imageVector = if (isSelected) dest.selectedIcon else dest.icon,
+                                        contentDescription = dest.contentDescription,
+                                        tint = contentColor,
+                                        modifier = Modifier.size(19.dp),
+                                    )
+                                }
+                            } else {
+                                Icon(
+                                    imageVector = if (isSelected) dest.selectedIcon else dest.icon,
+                                    contentDescription = dest.contentDescription,
+                                    tint = contentColor,
+                                    modifier = Modifier.size(19.dp),
+                                )
+                            }
+                        }
+
+                        AnimatedVisibility(
+                            visible = isSelected,
+                            enter = fadeIn(motion.micro) + expandHorizontally(animationSpec = motion.spatialSize),
+                            exit = fadeOut(motion.micro) + shrinkHorizontally(animationSpec = motion.spatialSize),
+                        ) {
+                            Row {
+                                Spacer(Modifier.width(5.dp))
+                                Text(
+                                    text = dest.label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = contentColor,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
                     }
-                },
-            ) {
-                Icon(
-                    imageVector = if (selected) destination.selectedIcon else destination.icon,
-                    contentDescription = destination.contentDescription,
-                    tint = ink,
-                    modifier = Modifier.size(22.dp),
-                )
+                }
             }
-            AnimatedVisibility(
-                visible = selected,
-                enter = expandHorizontally(animationSpec = motion.spatialSize) + fadeIn(animationSpec = motion.micro),
-                exit = shrinkHorizontally(animationSpec = motion.dismissSize) + fadeOut(animationSpec = motion.micro),
+        }
+
+        if (onFabClick != null) {
+            Surface(
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+                    onFabClick()
+                },
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp,
+                modifier = Modifier
+                    .height(height)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                    .animateContentSize(motion.spatialSize),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Spacer(Modifier.width(6.dp))
-                    Text(destination.label, style = MaterialTheme.typography.labelLarge, color = ink, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+                Row(
+                    modifier = Modifier.padding(horizontal = if (isFabCollapsed) 14.dp else 16.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = fabIcon,
+                        contentDescription = fabLabel,
+                        modifier = Modifier.size(19.dp),
+                    )
+                    AnimatedVisibility(
+                        visible = !isFabCollapsed,
+                        enter = fadeIn(motion.micro) + expandHorizontally(animationSpec = motion.spatialSize),
+                        exit = fadeOut(motion.micro) + shrinkHorizontally(animationSpec = motion.spatialSize),
+                    ) {
+                        Row {
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                text = fabLabel,
+                                style = MaterialTheme.typography.labelMedium,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
                 }
             }
         }
