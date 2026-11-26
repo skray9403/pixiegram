@@ -120,7 +120,7 @@ fun MainShell(graph: AppGraph, navigator: Navigator) {
                     MainTab.Chats -> ChatsTab(
                         graph = graph,
                         navigator = navigator,
-                        list = list,
+                        baseList = list,
                         onOpenDrawer = null,
                         onCloseArchive = { list = LIST_MAIN },
                         onOpenArchive = { list = LIST_ARCHIVE },
