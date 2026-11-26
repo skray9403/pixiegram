@@ -114,13 +114,14 @@ class TitanHiddenChats(context: Context) {
             // unrecoverable, so clear this feature's state and generate a fresh key.
             recreateKeyAndCipher() ?: run { onComplete(false); return }
         } catch (_: StrongBoxUnavailableException) {
-            // A previously StrongBox-backed key may stop being available after a
-            // provider/firmware change. Recreate it, allowing getOrCreateKey() to use TEE.
+            // Do not immediately select StrongBox again after it has become unavailable.
+            prefs.edit().putBoolean(KEY_FORCE_TEE, true).apply()
             recreateKeyAndCipher() ?: run { onComplete(false); return }
         } catch (_: ProviderException) {
-            // Treat a broken Keystore provider the same way, then retry with a new key.
+            prefs.edit().putBoolean(KEY_FORCE_TEE, true).apply()
             recreateKeyAndCipher() ?: run { onComplete(false); return }
         } catch (_: java.security.UnrecoverableKeyException) {
+            prefs.edit().putBoolean(KEY_FORCE_TEE, true).apply()
             recreateKeyAndCipher() ?: run { onComplete(false); return }
         } catch (_: Throwable) {
             onComplete(false)
@@ -246,7 +247,12 @@ class TitanHiddenChats(context: Context) {
                 generateKey()
             }
         }
-        return if (Build.VERSION.SDK_INT >= 28) runCatching { generate(true) }.getOrElse { generate(false) } else generate(false)
+        return if (Build.VERSION.SDK_INT >= 28 && !prefs.getBoolean(KEY_FORCE_TEE, false)) {
+            runCatching { generate(true) }.getOrElse {
+                prefs.edit().putBoolean(KEY_FORCE_TEE, true).apply()
+                generate(false)
+            }
+        } else generate(false)
     }
 
     private val indexKey: SecretKey by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
