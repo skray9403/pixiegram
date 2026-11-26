@@ -128,6 +128,7 @@ fun ChatsTab(
     onOpenDrawer: (() -> Unit)?,
     onCloseArchive: () -> Unit,
     onOpenArchive: () -> Unit = {},
+    externalSearchQuery: String = "",
 ) {
     val snapshot by graph.store.snapshot.collectAsState()
     val appearance by graph.appearance.state.collectAsState()
@@ -140,7 +141,11 @@ fun ChatsTab(
     val prefsOrder = com.pixelgram.android.feature.settings.FolderPrefs.order
     val unreadOn = com.pixelgram.android.feature.settings.FolderPrefs.unread
     val mentionsOn = com.pixelgram.android.feature.settings.FolderPrefs.mentions
-    val mainRows = snapshot.lists[LIST_MAIN].orEmpty()
+    val rawMainRows = snapshot.lists[LIST_MAIN].orEmpty()
+    val mainRows = remember(rawMainRows, externalSearchQuery) {
+        val query = externalSearchQuery.trim()
+        if (query.isEmpty()) rawMainRows else rawMainRows.filter { it.title.contains(query, ignoreCase = true) }
+    }
     val tabs = remember(snapshot.folders, snapshot.unread, allTitle, archive, appearance.hideAllChats, prefsOrder, unreadOn, mentionsOn, mainRows) {
         if (archive) {
             emptyList()
@@ -356,7 +361,12 @@ fun ChatsTab(
                 else -> LIST_MAIN
             }
             val archived = if (key == LIST_MAIN && appearance.archivePull) snapshot.lists[LIST_ARCHIVE].orEmpty() else emptyList()
-            val pageRows = if (id < 0 && !archive) remember(mainRows, id) { virtualRows(mainRows, id) } else snapshot.lists[key].orEmpty()
+            val sourceRows = if (id < 0 && !archive) remember(mainRows, id) { virtualRows(mainRows, id) } else snapshot.lists[key].orEmpty()
+            val query = externalSearchQuery.trim()
+            val pageRows = remember(sourceRows, query) {
+                if (query.isEmpty() || id < 0) sourceRows
+                else sourceRows.filter { it.title.contains(query, ignoreCase = true) }
+            }
             ChatListPage(graph, navigator, key, pageRows, if (page == pager.currentPage) scrollTop else 0, archived, onOpenArchive)
         }
     }
