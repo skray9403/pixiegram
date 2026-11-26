@@ -45,6 +45,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Redo
 import androidx.compose.material.icons.rounded.InsertDriveFile
 import androidx.compose.material.icons.rounded.LockOpen
+import Icons.AutoMirrored.Rounded.Chat
+import Icons.Rounded.VisibilityOff
+import Icons.Rounded.Visibility
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Done
@@ -683,7 +687,7 @@ private fun androidx.compose.foundation.layout.BoxScope.ChatSelectionBars(graph:
                     shapes = androidx.compose.material3.IconButtonDefaults.shapes(),
                 ) {
                     Icon(
-                        if (allHidden) androidx.compose.material.icons.rounded.Visibility else androidx.compose.material.icons.rounded.VisibilityOff,
+                        if (allHidden) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
                         if (allHidden) "Unhide chats" else "Hide chats",
                     )
                 }
@@ -1124,13 +1128,13 @@ private fun NewMessageSheet(graph: AppGraph, navigator: Navigator, onDismiss: ()
                 selected = !secretMode,
                 onClick = { secretMode = false },
                 label = { Text("Message") },
-                leadingIcon = { Icon(androidx.compose.material.icons.automirrored.rounded.Chat, null, Modifier.size(18.dp)) },
+                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null, Modifier.size(18.dp)) },
             )
             androidx.compose.material3.FilterChip(
                 selected = secretMode,
                 onClick = { secretMode = true },
                 label = { Text("Secret chat") },
-                leadingIcon = { Icon(androidx.compose.material.icons.rounded.Lock, null, Modifier.size(18.dp)) },
+                leadingIcon = { Icon(Icons.Rounded.Lock, null, Modifier.size(18.dp)) },
             )
         }
         if (secretMode) {
