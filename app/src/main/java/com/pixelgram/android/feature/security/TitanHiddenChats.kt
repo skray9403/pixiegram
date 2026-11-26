@@ -234,12 +234,12 @@ class TitanHiddenChats(context: Context) {
                 .setInvalidatedByBiometricEnrollment(true)
             if (Build.VERSION.SDK_INT >= 30) {
                 spec.setUserAuthenticationParameters(
-                    0,
+                    300,
                     KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL,
                 )
             } else {
                 @Suppress("DEPRECATION")
-                spec.setUserAuthenticationValidityDurationSeconds(-1)
+                spec.setUserAuthenticationValidityDurationSeconds(300)
             }
             if (strongBox && Build.VERSION.SDK_INT >= 28) spec.setIsStrongBoxBacked(true)
             return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").run {
@@ -299,6 +299,7 @@ fun TitanHiddenChatsDialog(graph: com.pixelgram.android.AppGraph, onDismiss: () 
     val hidden by graph.hiddenChats.state.collectAsState()
     val snapshot by graph.store.snapshot.collectAsState()
     var authError by remember { mutableStateOf(false) }
+    var pickingChats by remember { mutableStateOf(false) }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
         title = { androidx.compose.material3.Text("Hidden chats") },
@@ -313,14 +314,22 @@ fun TitanHiddenChatsDialog(graph: com.pixelgram.android.AppGraph, onDismiss: () 
                     HiddenModeOption("Include only selected chats", HiddenChatMode.IncludeOnlySelected, hidden.mode) { graph.hiddenChats.setMode(it) }
                     androidx.compose.material3.HorizontalDivider()
                     androidx.compose.material3.Text("Selected chats", style = androidx.compose.material3.MaterialTheme.typography.labelLarge)
-                    snapshot.allChats.forEach { row ->
-                        androidx.compose.foundation.layout.Row(
-                            Modifier.fillMaxWidth().clickable { graph.hiddenChats.setSelected(row.id, row.id !in hidden.selectedChatIds) }.padding(vertical = 5.dp),
-                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                        ) {
-                            androidx.compose.material3.Checkbox(row.id in hidden.selectedChatIds, { graph.hiddenChats.setSelected(row.id, it) })
-                            androidx.compose.material3.Text(row.title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                        }
+                    androidx.compose.material3.Text(
+                        if (hidden.selectedChatIds.isEmpty()) "No chats selected" else "${hidden.selectedChatIds.size} chats selected",
+                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { pickingChats = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        androidx.compose.material3.Text("Choose chats")
+                    }
+                    snapshot.allChats.filter { it.id in hidden.selectedChatIds }.forEach { row ->
+                        androidx.compose.material3.Text(
+                            row.title,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
@@ -344,4 +353,19 @@ private fun HiddenModeOption(label: String, mode: HiddenChatMode, selected: Hidd
         androidx.compose.material3.RadioButton(selected == mode, onClick = { onSelect(mode) })
         androidx.compose.material3.Text(label)
     }
+    if (pickingChats && hidden.unlocked) {
+        PeoplePicker(
+            graph = graph,
+            title = "Select hidden chats",
+            initial = hidden.selectedChatIds.toList(),
+            onDismiss = { pickingChats = false },
+            everything = true,
+        ) { selected ->
+            val previous = hidden.selectedChatIds
+            (previous - selected.toSet()).forEach { graph.hiddenChats.setSelected(it, false) }
+            (selected.toSet() - previous).forEach { graph.hiddenChats.setSelected(it, true) }
+            pickingChats = false
+        }
+    }
+
 }

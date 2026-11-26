@@ -32,6 +32,7 @@ class PixelApp : Application() {
             override fun onActivityStopped(activity: android.app.Activity) {
                 started = (started - 1).coerceAtLeast(0)
                 com.pixelgram.android.notify.AppVisibility.foreground = started > 0
+                if (started == 0) graph.hiddenChats.lock()
             }
             override fun onActivityCreated(activity: android.app.Activity, state: android.os.Bundle?) = Unit
             override fun onActivityResumed(activity: android.app.Activity) = Unit
