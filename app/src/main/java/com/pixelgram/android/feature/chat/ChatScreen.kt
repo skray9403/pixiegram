@@ -400,84 +400,126 @@ fun ChatScreen(graph: AppGraph, chatId: Long, navigator: Navigator, topicId: Int
                 showExpiryTimer = chat?.type is TdApi.ChatTypeSecret,
                 onExpiryTimer = { expiryTimerOpen = true },
             ) {
-                TopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { navigator.open(if (saved) com.pixelgram.android.nav.SavedKey else ProfileKey(privateUserId, chatId)) },
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.statusBars)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        contentColor = MaterialTheme.colorScheme.onSurface,
+                        shape = CircleShape,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
                     ) {
-                        Text(
-                            when {
-                                saved -> stringResource(R.string.drawer_saved)
-                                snapshot.users[privateUserId]?.deleted == true -> stringResource(R.string.chat_deleted_account)
-                                else -> snapshot.users[privateUserId]?.name ?: ui.title
-                            },
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
-                        if (!saved) {
-                            val row = snapshot.lists.values.firstNotNullOfOrNull { list -> list.firstOrNull { it.id == chatId } }
-                            com.pixelgram.android.ui.components.NameBadges(privateUserId, snapshot.users[privateUserId]?.verified == true || row?.verified == true, 20.dp, row?.scam == true, row?.fake == true, official = graph.store.isOfficial(chatId))
+                        Row(
+                            modifier = Modifier.heightIn(min = 56.dp).padding(horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            IconButton(
+                                onClick = navigator::back,
+                                modifier = Modifier.size(44.dp),
+                            ) {
+                                Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back))
+                            }
+                            IconButton(
+                                onClick = openChatDetails,
+                                modifier = Modifier.size(44.dp),
+                            ) {
+                                Avatar(
+                                    title = ui.title,
+                                    seed = chatId,
+                                    path = if (saved) null else snapshot.users[privateUserId]?.localPhoto ?: chat?.photo?.small?.id?.let { snapshot.files[it] },
+                                    minithumb = if (saved) null else chat?.photo?.minithumbnail?.data,
+                                    size = 36.dp,
+                                    icon = when {
+                                        saved -> Icons.Rounded.Bookmark
+                                        snapshot.users[privateUserId]?.deleted == true -> com.pixelgram.android.ui.icons.GhostIcon
+                                        else -> null
+                                    },
+                                    onNeedFile = if (saved) null else ({ chat?.photo?.small?.id?.let(graph.store::requestFileAsync) }),
+                                    kind = when (val type = chat?.type) {
+                                        is TdApi.ChatTypePrivate, is TdApi.ChatTypeSecret -> if (snapshot.users[privateUserId]?.bot == true) com.pixelgram.android.td.ChatKind.Bot else com.pixelgram.android.td.ChatKind.Private
+                                        is TdApi.ChatTypeSupergroup -> if (type.isChannel) com.pixelgram.android.td.ChatKind.Channel else com.pixelgram.android.td.ChatKind.Group
+                                        is TdApi.ChatTypeBasicGroup -> com.pixelgram.android.td.ChatKind.Group
+                                        else -> null
+                                    },
+                                    official = graph.store.isOfficial(chatId),
+                                )
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f).clickable(onClick = openChatDetails).padding(start = 4.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                                verticalArrangement = Arrangement.Center,
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        displayTitle,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                    )
+                                    if (!saved) {
+                                        val row = snapshot.lists.values.firstNotNullOfOrNull { list -> list.firstOrNull { it.id == chatId } }
+                                        com.pixelgram.android.ui.components.NameBadges(
+                                            privateUserId,
+                                            snapshot.users[privateUserId]?.verified == true || row?.verified == true,
+                                            18.dp,
+                                            row?.scam == true,
+                                            row?.fake == true,
+                                            official = graph.store.isOfficial(chatId),
+                                        )
+                                    }
+                                }
+                                when {
+                                    saved -> Unit
+                                    ui.typing.isNotEmpty() -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        com.pixelgram.android.feature.chats.TypingDots(MaterialTheme.colorScheme.primary)
+                                        Text(
+                                            if (privateUserId != 0L || ui.typing.size > 1) stringResource(R.string.chat_typing)
+                                            else stringResource(R.string.chat_typing_named, snapshot.users[ui.typing.first()]?.firstName.orEmpty()),
+                                            color = MaterialTheme.colorScheme.primary,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                    privateUserId != 0L -> snapshot.users[privateUserId]?.let {
+                                        Text(
+                                            com.pixelgram.android.ui.components.statusLine(it),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                        )
+                                    }
+                                    ui.members > 0 -> Text(
+                                        buildString {
+                                            append(androidx.compose.ui.res.pluralStringResource(if (ui.channel) R.plurals.chat_subscribers else R.plurals.chat_members, ui.members, ui.members))
+                                            if (ui.online > 1 && !ui.channel) append(", ").append(androidx.compose.ui.res.pluralStringResource(R.plurals.chat_online_count, ui.online, ui.online))
+                                        },
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                    )
+                                }
+                            }
+                            if (chat?.type is TdApi.ChatTypeSecret) {
+                                IconButton(onClick = { expiryTimerOpen = true }, modifier = Modifier.size(40.dp)) {
+                                    Icon(Icons.Rounded.Schedule, "Self-destruct timer", Modifier.size(20.dp))
+                                }
+                            }
+                            IconButton(
+                                onClick = { navigator.open(com.pixelgram.android.nav.SearchKey) },
+                                modifier = Modifier.size(40.dp),
+                            ) {
+                                Icon(Icons.Rounded.Search, stringResource(R.string.search_chats), Modifier.size(20.dp))
+                            }
                         }
                     }
-                },
-                subtitle = {
-                    when {
-                        saved -> Unit
-                        ui.typing.isNotEmpty() -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            com.pixelgram.android.feature.chats.TypingDots(MaterialTheme.colorScheme.primary)
-                            Text(
-                                if (privateUserId != 0L || ui.typing.size > 1) stringResource(R.string.chat_typing)
-                                else stringResource(R.string.chat_typing_named, snapshot.users[ui.typing.first()]?.firstName.orEmpty()),
-                                color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
-                            )
-                        }
-                        privateUserId != 0L -> snapshot.users[privateUserId]?.let { Text(com.pixelgram.android.ui.components.statusLine(it), maxLines = 1) }
-                        ui.members > 0 -> Text(
-                            buildString {
-                                append(androidx.compose.ui.res.pluralStringResource(if (ui.channel) R.plurals.chat_subscribers else R.plurals.chat_members, ui.members, ui.members))
-                                if (ui.online > 1 && !ui.channel) append(", ").append(androidx.compose.ui.res.pluralStringResource(R.plurals.chat_online_count, ui.online, ui.online))
-                            },
-                            maxLines = 1,
-                        )
-                    }
-                },
-                titleHorizontalAlignment = Alignment.CenterHorizontally,
-                navigationIcon = {
-                    IconButton(onClick = navigator::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back)) }
-                },
-                actions = {
-                    if (chat?.type is TdApi.ChatTypeSecret) {
-                        IconButton(onClick = { expiryTimerOpen = true }, modifier = Modifier.size(44.dp)) {
-                            Icon(Icons.Rounded.Schedule, "Self-destruct timer")
-                        }
-                    }
-                    IconButton(onClick = { navigator.open(if (saved) com.pixelgram.android.nav.SavedKey else ProfileKey(privateUserId, chatId)) }, modifier = Modifier.size(48.dp)) {
-                        Avatar(
-                            title = ui.title,
-                            seed = chatId,
-                            path = if (saved) null else snapshot.users[privateUserId]?.localPhoto ?: chat?.photo?.small?.id?.let { snapshot.files[it] },
-                            minithumb = if (saved) null else chat?.photo?.minithumbnail?.data,
-                            size = 40.dp,
-                            icon = when {
-                                saved -> Icons.Rounded.Bookmark
-                                snapshot.users[privateUserId]?.deleted == true -> com.pixelgram.android.ui.icons.GhostIcon
-                                else -> null
-                            },
-                            onNeedFile = if (saved) null else ({ chat?.photo?.small?.id?.let(graph.store::requestFileAsync) }),
-                            kind = when (val type = chat?.type) {
-                                is TdApi.ChatTypePrivate, is TdApi.ChatTypeSecret -> if (snapshot.users[privateUserId]?.bot == true) com.pixelgram.android.td.ChatKind.Bot else com.pixelgram.android.td.ChatKind.Private
-                                is TdApi.ChatTypeSupergroup -> if (type.isChannel) com.pixelgram.android.td.ChatKind.Channel else com.pixelgram.android.td.ChatKind.Group
-                                is TdApi.ChatTypeBasicGroup -> com.pixelgram.android.td.ChatKind.Group
-                                else -> null
-                            },
-                            official = graph.store.isOfficial(chatId),
-                        )
-                    }
-                },
-            )
+                }
             }
         },
         bottomBar = {
