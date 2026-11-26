@@ -253,14 +253,6 @@ private fun NotificationsSection(graph: AppGraph) {
         value = runCatching { graph.td.send(TdApi.GetScopeNotificationSettings(TdApi.NotificationSettingsScopeChannelChats())) }.getOrNull()
     }
     val appearance by graph.appearance.state.collectAsState()
-    var badgeIcon by rememberSaveable { mutableStateOf(true) }
-    var includeMuted by rememberSaveable { mutableStateOf(false) }
-    var countMessages by rememberSaveable { mutableStateOf(true) }
-    var inAppSounds by rememberSaveable { mutableStateOf(true) }
-    var inAppVibrate by rememberSaveable { mutableStateOf(true) }
-    var inAppPreview by rememberSaveable { mutableStateOf(true) }
-    var contactJoined by rememberSaveable { mutableStateOf(true) }
-    var pinnedMessages by rememberSaveable { mutableStateOf(true) }
 
     fun setScope(
         target: TdApi.NotificationSettingsScope,
@@ -281,18 +273,18 @@ private fun NotificationsSection(graph: AppGraph) {
         SettingsSwitch("Channels", (channelScope?.muteFor ?: 0) == 0, { setScope(TdApi.NotificationSettingsScopeChannelChats(), channelScope, it) }, SegmentPosition.Bottom)
     }
     SettingsGroup("Badge Counter") {
-        SettingsSwitch("Show Badge Icon", badgeIcon, { badgeIcon = it }, SegmentPosition.Top)
-        SettingsSwitch("Include Muted Chats", includeMuted, { includeMuted = it }, SegmentPosition.Middle)
-        SettingsSwitch("Count Unread Messages", countMessages, { countMessages = it }, SegmentPosition.Bottom)
+        SettingsSwitch("Show Badge Icon", appearance.notificationBadgeIcon, { value -> graph.appearance.update { it.copy(notificationBadgeIcon = value) } }, SegmentPosition.Top)
+        SettingsSwitch("Include Muted Chats", appearance.notificationIncludeMuted, { value -> graph.appearance.update { it.copy(notificationIncludeMuted = value) } }, SegmentPosition.Middle)
+        SettingsSwitch("Count Unread Messages", appearance.notificationCountMessages, { value -> graph.appearance.update { it.copy(notificationCountMessages = value) } }, SegmentPosition.Bottom)
     }
     SettingsGroup("In-App Notifications") {
-        SettingsSwitch("Sounds", inAppSounds, { inAppSounds = it }, SegmentPosition.Top)
-        SettingsSwitch("Vibrate", inAppVibrate, { inAppVibrate = it }, SegmentPosition.Middle)
-        SettingsSwitch("Preview", inAppPreview, { inAppPreview = it }, SegmentPosition.Bottom)
+        SettingsSwitch("Sounds", appearance.inAppSounds, { value -> graph.appearance.update { it.copy(inAppSounds = value) } }, SegmentPosition.Top)
+        SettingsSwitch("Vibrate", appearance.inAppVibrate, { value -> graph.appearance.update { it.copy(inAppVibrate = value) } }, SegmentPosition.Middle)
+        SettingsSwitch("Preview", appearance.inAppPreview, { value -> graph.appearance.update { it.copy(inAppPreview = value) } }, SegmentPosition.Bottom)
     }
     SettingsGroup("Events and background") {
-        SettingsSwitch("Contact joined", contactJoined, { contactJoined = it }, SegmentPosition.Top)
-        SettingsSwitch("Pinned messages", pinnedMessages, { pinnedMessages = it }, SegmentPosition.Middle)
+        SettingsSwitch("Contact joined", appearance.notifyContactJoined, { value -> graph.appearance.update { it.copy(notifyContactJoined = value) } }, SegmentPosition.Top)
+        SettingsSwitch("Pinned messages", appearance.notifyPinnedMessages, { value -> graph.appearance.update { it.copy(notifyPinnedMessages = value) } }, SegmentPosition.Middle)
         SettingsSwitch("Keep-Alive Service", appearance.keepAlive, { enabled -> graph.appearance.update { current -> current.copy(keepAlive = enabled) } }, SegmentPosition.Bottom, "Keep the background connection active for notifications")
     }
     SettingsGroup("Other appearance") {
@@ -333,10 +325,7 @@ private fun DataAndStorageSection(graph: AppGraph) {
     val roamingPreset by produceState<TdApi.AutoDownloadSettings?>(null, reload) {
         value = runCatching { graph.td.send(TdApi.GetAutoDownloadSettingsPresets()).low }.getOrNull()
     }
-    var savePrivate by rememberSaveable { mutableStateOf(false) }
-    var saveGroups by rememberSaveable { mutableStateOf(false) }
-    var saveChannels by rememberSaveable { mutableStateOf(false) }
-    var streamMedia by rememberSaveable { mutableStateOf(true) }
+    val appearance by graph.appearance.state.collectAsState()
     val storageSize = storage?.let { Formatter.formatShortFileSize(context, it.size) } ?: "Calculating…"
     val networkBytes = network?.entries?.sumOf { entry ->
         when (entry) {
@@ -395,12 +384,12 @@ private fun DataAndStorageSection(graph: AppGraph) {
         }, SegmentPosition.Bottom)
     }
     SettingsGroup("Save to Gallery") {
-        SettingsSwitch("Private Chats", savePrivate, { savePrivate = it }, SegmentPosition.Top)
-        SettingsSwitch("Groups", saveGroups, { saveGroups = it }, SegmentPosition.Middle)
-        SettingsSwitch("Channels", saveChannels, { saveChannels = it }, SegmentPosition.Bottom)
+        SettingsSwitch("Private Chats", appearance.saveGalleryPrivate, { value -> graph.appearance.update { it.copy(saveGalleryPrivate = value) } }, SegmentPosition.Top)
+        SettingsSwitch("Groups", appearance.saveGalleryGroups, { value -> graph.appearance.update { it.copy(saveGalleryGroups = value) } }, SegmentPosition.Middle)
+        SettingsSwitch("Channels", appearance.saveGalleryChannels, { value -> graph.appearance.update { it.copy(saveGalleryChannels = value) } }, SegmentPosition.Bottom)
     }
     SettingsGroup("Streaming") {
-        SettingsSwitch("Stream Videos and Audio Files", streamMedia, { streamMedia = it }, SegmentPosition.Single)
+        SettingsSwitch("Stream Videos and Audio Files", appearance.streamMedia, { value -> graph.appearance.update { it.copy(streamMedia = value) } }, SegmentPosition.Single)
     }
     SettingsGroup("Cloud drafts") {
         SettingsItem(
@@ -415,13 +404,7 @@ private fun DataAndStorageSection(graph: AppGraph) {
 @Composable
 private fun PowerSavingSection(graph: AppGraph) {
     val appearance by graph.appearance.state.collectAsState()
-    var threshold by rememberSaveable { mutableFloatStateOf(10f) }
-    var animatedStickers by rememberSaveable { mutableStateOf(true) }
-    var animatedEmoji by rememberSaveable { mutableStateOf(true) }
-    var chatEffects by rememberSaveable { mutableStateOf(true) }
-    var autoplayVideos by rememberSaveable { mutableStateOf(true) }
-    var autoplayGifs by rememberSaveable { mutableStateOf(true) }
-    var particles by rememberSaveable { mutableStateOf(true) }
+    val threshold = appearance.powerSavingThreshold.toFloat()
 
     SettingsGroup("Power saving threshold") {
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -429,7 +412,7 @@ private fun PowerSavingSection(graph: AppGraph) {
                 Text("Battery threshold", style = MaterialTheme.typography.titleMedium)
                 Text(if (threshold <= 0f) "Off" else "Below ${threshold.toInt()}%", color = MaterialTheme.colorScheme.primary)
             }
-            Slider(value = threshold, onValueChange = { threshold = it }, valueRange = 0f..50f, steps = 9)
+            Slider(value = threshold, onValueChange = { value -> graph.appearance.update { it.copy(powerSavingThreshold = value.toInt().coerceIn(0, 50)) } }, valueRange = 0f..50f, steps = 9)
             Text(
                 "This is an app-level preference. Android does not allow third-party apps to change the system Battery Saver threshold.",
                 style = MaterialTheme.typography.bodySmall,
@@ -438,12 +421,12 @@ private fun PowerSavingSection(graph: AppGraph) {
         }
     }
     SettingsGroup("Power saving options") {
-        SettingsSwitch("Animated Stickers", animatedStickers, { animatedStickers = it }, SegmentPosition.Top)
-        SettingsSwitch("Animated Emoji", animatedEmoji, { animatedEmoji = it }, SegmentPosition.Middle)
-        SettingsSwitch("Effects in Chats", chatEffects, { chatEffects = it }, SegmentPosition.Middle)
-        SettingsSwitch("Autoplay Videos", autoplayVideos, { autoplayVideos = it }, SegmentPosition.Middle)
-        SettingsSwitch("Autoplay GIFs", autoplayGifs, { autoplayGifs = it }, SegmentPosition.Middle)
-        SettingsSwitch("Particles", particles, { particles = it }, SegmentPosition.Middle)
+        SettingsSwitch("Animated Stickers", appearance.powerAnimatedStickers, { value -> graph.appearance.update { it.copy(powerAnimatedStickers = value) } }, SegmentPosition.Top)
+        SettingsSwitch("Animated Emoji", appearance.powerAnimatedEmoji, { value -> graph.appearance.update { it.copy(powerAnimatedEmoji = value) } }, SegmentPosition.Middle)
+        SettingsSwitch("Effects in Chats", appearance.powerChatEffects, { value -> graph.appearance.update { it.copy(powerChatEffects = value) } }, SegmentPosition.Middle)
+        SettingsSwitch("Autoplay Videos", appearance.powerAutoplayVideos, { value -> graph.appearance.update { it.copy(powerAutoplayVideos = value) } }, SegmentPosition.Middle)
+        SettingsSwitch("Autoplay GIFs", appearance.powerAutoplayGifs, { value -> graph.appearance.update { it.copy(powerAutoplayGifs = value) } }, SegmentPosition.Middle)
+        SettingsSwitch("Particles", appearance.powerParticles, { value -> graph.appearance.update { it.copy(powerParticles = value) } }, SegmentPosition.Middle)
         SettingsSwitch("Smooth Transitions", appearance.smoothCursor, { enabled -> graph.appearance.update { it.copy(smoothCursor = enabled) } }, SegmentPosition.Bottom)
     }
 }
