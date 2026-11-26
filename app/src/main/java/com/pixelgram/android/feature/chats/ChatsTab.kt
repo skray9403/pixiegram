@@ -1,5 +1,11 @@
 package com.pixelgram.android.feature.chats
 
+import androidx.compose.material.icons.rounded.Settings
+
+import androidx.compose.material.icons.rounded.Devices
+
+import androidx.compose.material3.ModalBottomSheet
+
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.ui.draw.shadow
@@ -37,7 +43,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Redo
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.InsertDriveFile
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.Edit
@@ -185,6 +190,8 @@ fun ChatsTab(
     val tracker = remember { HideOnScroll(with(density) { HideDistance.toPx() }, with(density) { ShowDistance.toPx() }) }
     var newMessage by remember { mutableStateOf(false) }
     var hiddenChatsOpen by remember { mutableStateOf(false) }
+    var accountSheetOpen by remember { mutableStateOf(false) }
+    val me = snapshot.users[snapshot.meId]
     var fabMenu by remember { mutableStateOf(false) }
     var scrollTop by remember { mutableStateOf(0) }
     var newChat by remember { mutableStateOf<Boolean?>(null) }
@@ -192,6 +199,58 @@ fun ChatsTab(
     LaunchedEffect(tracker.hidden) { if (tracker.hidden) fabMenu = false }
     if (newMessage) NewMessageSheet(graph, navigator) { newMessage = false }
     if (hiddenChatsOpen) com.pixelgram.android.feature.security.TitanHiddenChatsDialog(graph) { graph.hiddenChats.lock(); hiddenChatsOpen = false }
+    if (accountSheetOpen) {
+        ModalBottomSheet(onDismissRequest = { accountSheetOpen = false }) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                    me?.let {
+                        Avatar(title = it.name, seed = it.id, path = it.localPhoto, minithumb = it.minithumb, size = 52.dp)
+                    }
+                    Column(Modifier.padding(start = 14.dp)) {
+                        Text(me?.name.orEmpty(), style = MaterialTheme.typography.titleMedium)
+                        me?.username?.let { Text("@$it", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        if (me?.username == null && me?.phone?.isNotBlank() == true) Text(me.phone, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                val actions = listOf(
+                    Triple(Icons.Rounded.Person, "Your profile", 0),
+                    Triple(Icons.Rounded.Archive, "Archived", 1),
+                    Triple(Icons.Rounded.LockOpen, "Hidden chats", 2),
+                    Triple(Icons.Rounded.DoneAll, "Mark all as read", 3),
+                    Triple(Icons.Rounded.Devices, "Devices", 4),
+                    Triple(Icons.Rounded.Settings, "Settings", 5),
+                )
+                actions.forEachIndexed { index, action ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                            .clickable {
+                                accountSheetOpen = false
+                                when (action.third) {
+                                    0 -> if (snapshot.meId != 0L) navigator.open(com.pixelgram.android.nav.ProfileKey(snapshot.meId))
+                                    1 -> onOpenArchive()
+                                    2 -> hiddenChatsOpen = true
+                                    3 -> scope.launch {
+                                        snapshot.lists[LIST_MAIN].orEmpty().forEach { row ->
+                                            if (row.lastMessageId > 0L) runCatching {
+                                                graph.td.send(TdApi.ViewMessages(row.id, longArrayOf(row.lastMessageId), true))
+                                            }
+                                        }
+                                    }
+                                    4 -> navigator.open(com.pixelgram.android.nav.SessionsKey)
+                                    5 -> navigator.open(com.pixelgram.android.nav.SettingsKey)
+                                }
+                            }
+                            .padding(horizontal = 12.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(action.first, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(action.second, Modifier.padding(start = 16.dp), style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+                Spacer(Modifier.height(20.dp))
+            }
+        }
+    }
     newChat?.let { channel -> NewChatDialog(graph, navigator, channel) { newChat = null } }
     Scaffold(
         floatingActionButton = {
@@ -312,8 +371,17 @@ fun ChatsTab(
                         if (lockOn && !archive) {
                             IconButton(onClick = { com.pixelgram.android.feature.security.PasscodeLock.lockNow(lockContext) }) { Icon(Icons.Rounded.LockOpen, stringResource(R.string.passcode_lock_now)) }
                         }
-                        IconButton(onClick = { hiddenChatsOpen = true }) { Icon(Icons.Rounded.LockOpen, "Hidden chats") }
-                        IconButton(onClick = { navigator.open(com.pixelgram.android.nav.SearchKey) }) { Icon(Icons.Rounded.Search, stringResource(R.string.search_chats)) }
+                        if (!archive) {
+                            IconButton(onClick = { accountSheetOpen = true }) {
+                                if (me != null) Avatar(
+                                    title = me.name,
+                                    seed = me.id,
+                                    path = me.localPhoto,
+                                    minithumb = me.minithumb,
+                                    size = 34.dp,
+                                ) else Icon(Icons.Rounded.Person, stringResource(R.string.profile_title))
+                            }
+                        }
                     },
                     navigationIcon = {
                         if (archive) {
