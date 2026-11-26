@@ -389,7 +389,7 @@ private fun DataAndStorageSection(graph: AppGraph) {
         }, SegmentPosition.Middle)
         SettingsSwitch("Roaming", roamingPreset?.isAutoDownloadEnabled == true, { enabled ->
             scope.launch {
-                roamingPreset?.let { it.isAutoDownloadEnabled = enabled; runCatching { graph.td.send(TdApi.SetAutoDownloadSettings(it, TdApi.NetworkTypeRoaming())) } }
+                roamingPreset?.let { it.isAutoDownloadEnabled = enabled; runCatching { graph.td.send(TdApi.SetAutoDownloadSettings(it, TdApi.NetworkTypeMobileRoaming())) } }
                 reload++
             }
         }, SegmentPosition.Bottom)
