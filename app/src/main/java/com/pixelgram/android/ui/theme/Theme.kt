@@ -63,13 +63,6 @@ val AvatarKinds = listOf(
     com.pixelgram.android.td.ChatKind.Secret,
     com.pixelgram.android.td.ChatKind.Saved,
 )
-    com.pixelgram.android.td.ChatKind.Private,
-    com.pixelgram.android.td.ChatKind.Bot,
-    com.pixelgram.android.td.ChatKind.Group,
-    com.pixelgram.android.td.ChatKind.Channel,
-    com.pixelgram.android.td.ChatKind.Secret,
-    com.pixelgram.android.td.ChatKind.Saved,
-)
 
 
 @Composable
