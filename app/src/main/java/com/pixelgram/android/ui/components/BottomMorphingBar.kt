@@ -176,6 +176,7 @@ fun <K> FloatingMorphingNavigationDock(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (cappedDestinations.isNotEmpty()) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             contentColor = MaterialTheme.colorScheme.onSurface,
@@ -292,6 +293,7 @@ fun <K> FloatingMorphingNavigationDock(
                     }
                 }
             }
+        }
         }
 
         if (onFabClick != null || onSearchOpen != null) {
