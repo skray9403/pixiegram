@@ -231,9 +231,9 @@ fun ChatsTab(
                                     2 -> hiddenChatsOpen = true
                                     3 -> scope.launch {
                                         snapshot.lists[LIST_MAIN].orEmpty().forEach { row ->
-                                            if (row.lastMessageId > 0L) runCatching {
-                                                graph.td.send(TdApi.ViewMessages(row.id, longArrayOf(row.lastMessageId), true))
-                                            }
+                                            if (row.lastMessageId > 0L) try {
+                                                graph.td.send(TdApi.ViewMessages(row.id, longArrayOf(row.lastMessageId), null, true))
+                                            } catch (_: Throwable) { }
                                         }
                                     }
                                     4 -> navigator.open(com.pixelgram.android.nav.SessionsKey)
@@ -379,7 +379,7 @@ fun ChatsTab(
                                     path = me.localPhoto,
                                     minithumb = me.minithumb,
                                     size = 34.dp,
-                                ) else Icon(Icons.Rounded.Person, stringResource(R.string.profile_title))
+                                ) else Icon(Icons.Rounded.Person, "Profile")
                             }
                         }
                     },
