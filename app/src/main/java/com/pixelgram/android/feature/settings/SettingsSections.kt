@@ -1,5 +1,17 @@
 package com.pixelgram.android.feature.settings
 
+import com.pixelgram.android.ui.components.SettingsSwitch
+
+import androidx.compose.ui.platform.LocalContext
+
+import androidx.compose.runtime.mutableFloatStateOf
+
+import androidx.compose.runtime.produceState
+
+import androidx.compose.material3.Slider
+
+import android.text.format.Formatter
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -135,6 +147,9 @@ fun SettingsSectionScreen(graph: AppGraph, section: String, navigator: Navigator
                 SettingsSection.Chats -> SettingsGroup {
                     SettingsItem(stringResource(R.string.stickers_title), SegmentPosition.Single, stringResource(R.string.stickers_sub), Icons.Rounded.EmojiEmotions, onClick = { navigator.open(com.pixelgram.android.nav.StickersKey) })
                 }
+                SettingsSection.Notifications -> NotificationsSection(graph)
+                SettingsSection.Data -> DataAndStorageSection(graph)
+                SettingsSection.Power -> PowerSavingSection(graph)
                 else -> ComingSoon(current.icon, current.tone)
             }
         }
@@ -221,5 +236,180 @@ private fun AccountEditor(graph: AppGraph) {
             if (busy) LoadingIndicator(Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
             else Text(stringResource(R.string.account_save))
         }
+    }
+}
+
+@Composable
+private fun NotificationsSection(graph: AppGraph) {
+    val scope = rememberCoroutineScope()
+    var reload by remember { mutableStateOf(0) }
+    val privateScope by produceState<TdApi.ScopeNotificationSettings?>(null, reload) {
+        value = runCatching { graph.td.send(TdApi.GetScopeNotificationSettings(TdApi.NotificationSettingsScopePrivateChats())) }.getOrNull()
+    }
+    val groupScope by produceState<TdApi.ScopeNotificationSettings?>(null, reload) {
+        value = runCatching { graph.td.send(TdApi.GetScopeNotificationSettings(TdApi.NotificationSettingsScopeGroupChats())) }.getOrNull()
+    }
+    val channelScope by produceState<TdApi.ScopeNotificationSettings?>(null, reload) {
+        value = runCatching { graph.td.send(TdApi.GetScopeNotificationSettings(TdApi.NotificationSettingsScopeChannelChats())) }.getOrNull()
+    }
+    val appearance by graph.appearance.state.collectAsState()
+
+    fun setScope(
+        target: TdApi.NotificationSettingsScope,
+        current: TdApi.ScopeNotificationSettings?,
+        enabled: Boolean,
+    ) {
+        val settings = current ?: TdApi.ScopeNotificationSettings()
+        settings.muteFor = if (enabled) 0 else Int.MAX_VALUE
+        scope.launch {
+            runCatching { graph.td.send(TdApi.SetScopeNotificationSettings(target, settings)) }
+            reload++
+        }
+    }
+
+    SettingsGroup("Notifications for chats") {
+        SettingsSwitch("Private Chats", (privateScope?.muteFor ?: 0) == 0, { setScope(TdApi.NotificationSettingsScopePrivateChats(), privateScope, it) }, SegmentPosition.First)
+        SettingsSwitch("Groups", (groupScope?.muteFor ?: 0) == 0, { setScope(TdApi.NotificationSettingsScopeGroupChats(), groupScope, it) }, SegmentPosition.Middle)
+        SettingsSwitch("Channels", (channelScope?.muteFor ?: 0) == 0, { setScope(TdApi.NotificationSettingsScopeChannelChats(), channelScope, it) }, SegmentPosition.Last)
+    }
+    SettingsGroup("In-app and badge preferences") {
+        SettingsSwitch("Keep-Alive Service", appearance.keepAlive, { graph.appearance.update { current -> current.copy(keepAlive = it) } }, SegmentPosition.First, "Keep the background connection active for notifications")
+        SettingsSwitch("Smooth Transitions", appearance.smoothCursor, { graph.appearance.update { current -> current.copy(smoothCursor = it) } }, SegmentPosition.Last)
+    }
+    SettingsGroup {
+        SettingsItem(
+            title = "Reset All Notifications",
+            position = SegmentPosition.Single,
+            subtitle = "Reset Telegram notification settings for all chat scopes",
+            onClick = {
+                scope.launch {
+                    runCatching { graph.td.send(TdApi.ResetAllNotificationSettings()) }
+                    reload++
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun DataAndStorageSection(graph: AppGraph) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var reload by remember { mutableStateOf(0) }
+    val storage by produceState<TdApi.StorageStatistics?>(null, reload) {
+        value = runCatching { graph.td.send(TdApi.GetStorageStatistics(20)) }.getOrNull()
+    }
+    val network by produceState<TdApi.NetworkStatistics?>(null, reload) {
+        value = runCatching { graph.td.send(TdApi.GetNetworkStatistics(false)) }.getOrNull()
+    }
+    val mobilePreset by produceState<TdApi.AutoDownloadSettings?>(null, reload) {
+        value = runCatching { graph.td.send(TdApi.GetAutoDownloadSettingsPresets()).medium }.getOrNull()
+    }
+    val wifiPreset by produceState<TdApi.AutoDownloadSettings?>(null, reload) {
+        value = runCatching { graph.td.send(TdApi.GetAutoDownloadSettingsPresets()).high }.getOrNull()
+    }
+    val roamingPreset by produceState<TdApi.AutoDownloadSettings?>(null, reload) {
+        value = runCatching { graph.td.send(TdApi.GetAutoDownloadSettingsPresets()).low }.getOrNull()
+    }
+    val storageSize = storage?.let { Formatter.formatShortFileSize(context, it.size) } ?: "Calculating…"
+    val networkBytes = network?.entries?.sumOf { entry ->
+        when (entry) {
+            is TdApi.NetworkStatisticsEntryFile -> entry.sentBytes + entry.receivedBytes
+            is TdApi.NetworkStatisticsEntryCall -> entry.sentBytes + entry.receivedBytes
+            else -> 0L
+        }
+    } ?: 0L
+    val networkSize = Formatter.formatShortFileSize(context, networkBytes)
+
+    SettingsGroup("Disk and network usage") {
+        SettingsItem(
+            title = "Storage Usage",
+            position = SegmentPosition.First,
+            subtitle = "Tap to optimize cached files",
+            icon = Icons.Rounded.DataUsage,
+            trailing = { Text(storageSize, color = MaterialTheme.colorScheme.primary) },
+            onClick = {
+                scope.launch {
+                    runCatching { graph.td.send(TdApi.OptimizeStorage(0, -1, -1, 0, emptyArray(), longArrayOf(), longArrayOf(), false, 20)) }
+                    reload++
+                }
+            },
+        )
+        SettingsItem(
+            title = "Network Usage",
+            position = SegmentPosition.Last,
+            subtitle = "Sent and received through TDLib. Tap to reset counters",
+            trailing = { Text(networkSize, color = MaterialTheme.colorScheme.primary) },
+            onClick = {
+                scope.launch {
+                    runCatching { graph.td.send(TdApi.ResetNetworkStatistics()) }
+                    reload++
+                }
+            },
+        )
+    }
+    SettingsGroup("Automatic media download") {
+        SettingsSwitch("Mobile data", mobilePreset?.isAutoDownloadEnabled == true, { enabled ->
+            scope.launch {
+                mobilePreset?.let { it.isAutoDownloadEnabled = enabled; runCatching { graph.td.send(TdApi.SetAutoDownloadSettings(it, TdApi.NetworkTypeMobile())) } }
+                reload++
+            }
+        }, SegmentPosition.First)
+        SettingsSwitch("Wi-Fi", wifiPreset?.isAutoDownloadEnabled == true, { enabled ->
+            scope.launch {
+                wifiPreset?.let { it.isAutoDownloadEnabled = enabled; runCatching { graph.td.send(TdApi.SetAutoDownloadSettings(it, TdApi.NetworkTypeWiFi())) } }
+                reload++
+            }
+        }, SegmentPosition.Middle)
+        SettingsSwitch("Roaming", roamingPreset?.isAutoDownloadEnabled == true, { enabled ->
+            scope.launch {
+                roamingPreset?.let { it.isAutoDownloadEnabled = enabled; runCatching { graph.td.send(TdApi.SetAutoDownloadSettings(it, TdApi.NetworkTypeRoaming())) } }
+                reload++
+            }
+        }, SegmentPosition.Last)
+    }
+    SettingsGroup("Cloud drafts") {
+        SettingsItem(
+            title = "Delete All Cloud Drafts",
+            position = SegmentPosition.Single,
+            subtitle = "Clear drafts from all chats",
+            onClick = { scope.launch { runCatching { graph.td.send(TdApi.ClearAllDraftMessages(true)) } } },
+        )
+    }
+}
+
+@Composable
+private fun PowerSavingSection(graph: AppGraph) {
+    val appearance by graph.appearance.state.collectAsState()
+    var threshold by rememberSaveable { mutableFloatStateOf(10f) }
+    var animatedStickers by rememberSaveable { mutableStateOf(true) }
+    var animatedEmoji by rememberSaveable { mutableStateOf(true) }
+    var chatEffects by rememberSaveable { mutableStateOf(true) }
+    var autoplayVideos by rememberSaveable { mutableStateOf(true) }
+    var autoplayGifs by rememberSaveable { mutableStateOf(true) }
+    var particles by rememberSaveable { mutableStateOf(true) }
+
+    SettingsGroup("Power saving threshold") {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+            androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Battery threshold", style = MaterialTheme.typography.titleMedium)
+                Text(if (threshold <= 0f) "Off" else "Below ${threshold.toInt()}%", color = MaterialTheme.colorScheme.primary)
+            }
+            Slider(value = threshold, onValueChange = { threshold = it }, valueRange = 0f..50f, steps = 9)
+            Text(
+                "This is an app-level preference. Android does not allow third-party apps to change the system Battery Saver threshold.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    SettingsGroup("Power saving options") {
+        SettingsSwitch("Animated Stickers", animatedStickers, { animatedStickers = it }, SegmentPosition.First)
+        SettingsSwitch("Animated Emoji", animatedEmoji, { animatedEmoji = it }, SegmentPosition.Middle)
+        SettingsSwitch("Effects in Chats", chatEffects, { chatEffects = it }, SegmentPosition.Middle)
+        SettingsSwitch("Autoplay Videos", autoplayVideos, { autoplayVideos = it }, SegmentPosition.Middle)
+        SettingsSwitch("Autoplay GIFs", autoplayGifs, { autoplayGifs = it }, SegmentPosition.Middle)
+        SettingsSwitch("Particles", particles, { particles = it }, SegmentPosition.Middle)
+        SettingsSwitch("Smooth Transitions", appearance.smoothCursor, { enabled -> graph.appearance.update { it.copy(smoothCursor = enabled) } }, SegmentPosition.Last)
     }
 }
