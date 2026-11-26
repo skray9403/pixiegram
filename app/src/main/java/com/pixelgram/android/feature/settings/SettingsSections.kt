@@ -268,13 +268,13 @@ private fun NotificationsSection(graph: AppGraph) {
     }
 
     SettingsGroup("Notifications for chats") {
-        SettingsSwitch("Private Chats", (privateScope?.muteFor ?: 0) == 0, { setScope(TdApi.NotificationSettingsScopePrivateChats(), privateScope, it) }, SegmentPosition.First)
+        SettingsSwitch("Private Chats", (privateScope?.muteFor ?: 0) == 0, { setScope(TdApi.NotificationSettingsScopePrivateChats(), privateScope, it) }, SegmentPosition.Top)
         SettingsSwitch("Groups", (groupScope?.muteFor ?: 0) == 0, { setScope(TdApi.NotificationSettingsScopeGroupChats(), groupScope, it) }, SegmentPosition.Middle)
-        SettingsSwitch("Channels", (channelScope?.muteFor ?: 0) == 0, { setScope(TdApi.NotificationSettingsScopeChannelChats(), channelScope, it) }, SegmentPosition.Last)
+        SettingsSwitch("Channels", (channelScope?.muteFor ?: 0) == 0, { setScope(TdApi.NotificationSettingsScopeChannelChats(), channelScope, it) }, SegmentPosition.Bottom)
     }
     SettingsGroup("In-app and badge preferences") {
-        SettingsSwitch("Keep-Alive Service", appearance.keepAlive, { graph.appearance.update { current -> current.copy(keepAlive = it) } }, SegmentPosition.First, "Keep the background connection active for notifications")
-        SettingsSwitch("Smooth Transitions", appearance.smoothCursor, { graph.appearance.update { current -> current.copy(smoothCursor = it) } }, SegmentPosition.Last)
+        SettingsSwitch("Keep-Alive Service", appearance.keepAlive, { graph.appearance.update { current -> current.copy(keepAlive = it) } }, SegmentPosition.Top, "Keep the background connection active for notifications")
+        SettingsSwitch("Smooth Transitions", appearance.smoothCursor, { graph.appearance.update { current -> current.copy(smoothCursor = it) } }, SegmentPosition.Bottom)
     }
     SettingsGroup {
         SettingsItem(
@@ -324,7 +324,7 @@ private fun DataAndStorageSection(graph: AppGraph) {
     SettingsGroup("Disk and network usage") {
         SettingsItem(
             title = "Storage Usage",
-            position = SegmentPosition.First,
+            position = SegmentPosition.Top,
             subtitle = "Tap to optimize cached files",
             icon = Icons.Rounded.DataUsage,
             trailing = { Text(storageSize, color = MaterialTheme.colorScheme.primary) },
@@ -337,7 +337,7 @@ private fun DataAndStorageSection(graph: AppGraph) {
         )
         SettingsItem(
             title = "Network Usage",
-            position = SegmentPosition.Last,
+            position = SegmentPosition.Bottom,
             subtitle = "Sent and received through TDLib. Tap to reset counters",
             trailing = { Text(networkSize, color = MaterialTheme.colorScheme.primary) },
             onClick = {
@@ -354,7 +354,7 @@ private fun DataAndStorageSection(graph: AppGraph) {
                 mobilePreset?.let { it.isAutoDownloadEnabled = enabled; runCatching { graph.td.send(TdApi.SetAutoDownloadSettings(it, TdApi.NetworkTypeMobile())) } }
                 reload++
             }
-        }, SegmentPosition.First)
+        }, SegmentPosition.Top)
         SettingsSwitch("Wi-Fi", wifiPreset?.isAutoDownloadEnabled == true, { enabled ->
             scope.launch {
                 wifiPreset?.let { it.isAutoDownloadEnabled = enabled; runCatching { graph.td.send(TdApi.SetAutoDownloadSettings(it, TdApi.NetworkTypeWiFi())) } }
@@ -366,7 +366,7 @@ private fun DataAndStorageSection(graph: AppGraph) {
                 roamingPreset?.let { it.isAutoDownloadEnabled = enabled; runCatching { graph.td.send(TdApi.SetAutoDownloadSettings(it, TdApi.NetworkTypeRoaming())) } }
                 reload++
             }
-        }, SegmentPosition.Last)
+        }, SegmentPosition.Bottom)
     }
     SettingsGroup("Cloud drafts") {
         SettingsItem(
@@ -404,12 +404,12 @@ private fun PowerSavingSection(graph: AppGraph) {
         }
     }
     SettingsGroup("Power saving options") {
-        SettingsSwitch("Animated Stickers", animatedStickers, { animatedStickers = it }, SegmentPosition.First)
+        SettingsSwitch("Animated Stickers", animatedStickers, { animatedStickers = it }, SegmentPosition.Top)
         SettingsSwitch("Animated Emoji", animatedEmoji, { animatedEmoji = it }, SegmentPosition.Middle)
         SettingsSwitch("Effects in Chats", chatEffects, { chatEffects = it }, SegmentPosition.Middle)
         SettingsSwitch("Autoplay Videos", autoplayVideos, { autoplayVideos = it }, SegmentPosition.Middle)
         SettingsSwitch("Autoplay GIFs", autoplayGifs, { autoplayGifs = it }, SegmentPosition.Middle)
         SettingsSwitch("Particles", particles, { particles = it }, SegmentPosition.Middle)
-        SettingsSwitch("Smooth Transitions", appearance.smoothCursor, { enabled -> graph.appearance.update { it.copy(smoothCursor = enabled) } }, SegmentPosition.Last)
+        SettingsSwitch("Smooth Transitions", appearance.smoothCursor, { enabled -> graph.appearance.update { it.copy(smoothCursor = enabled) } }, SegmentPosition.Bottom)
     }
 }
