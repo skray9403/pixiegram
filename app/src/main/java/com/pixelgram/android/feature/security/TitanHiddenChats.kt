@@ -1,6 +1,7 @@
 package com.pixelgram.android.feature.security
 
 import android.content.Context
+import android.content.ContextWrapper
 import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -47,7 +48,7 @@ class TitanHiddenChats(context: Context) {
     val state: StateFlow<TitanHiddenChatState> = stateFlow.asStateFlow()
 
     fun isVisible(chatId: Long): Boolean {
-        if (chatId == 0L) return true
+        if (chatId == 0L || stateFlow.value.unlocked) return true
         val hashes = prefs.getStringSet(KEY_HASHES, emptySet()).orEmpty()
         val mode = runCatching { HiddenChatMode.valueOf(prefs.getString(KEY_MODE, null) ?: "ExcludeSelected") }
             .getOrDefault(HiddenChatMode.ExcludeSelected)
@@ -186,8 +187,17 @@ class TitanHiddenChats(context: Context) {
     )
 
     private data class HiddenConfig(val mode: HiddenChatMode, val ids: Set<Long>)
-    private companion object {
-        const val KEY_ALIAS = "pixelgram_titan_hidden_chats_v1"
+    companion object {
+        fun findFragmentActivity(context: Context): FragmentActivity? {
+            var current: Context? = context
+            while (current != null) {
+                if (current is FragmentActivity) return current
+                current = (current as? ContextWrapper)?.baseContext
+            }
+            return null
+        }
+
+        private const val KEY_ALIAS = "pixelgram_titan_hidden_chats_v1"
         const val KEY_INDEX_ALIAS = "pixelgram_titan_hidden_chats_index_v1"
         const val KEY_IV = "iv"
         const val KEY_CIPHERTEXT = "ciphertext"
@@ -199,9 +209,7 @@ class TitanHiddenChats(context: Context) {
 @Composable
 fun TitanHiddenChatsDialog(graph: com.pixelgram.android.AppGraph, onDismiss: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val activity = remember(context) {
-        generateSequence(context) { (it as? android.content.ContextWrapper)?.baseContext }.filterIsInstance<FragmentActivity>().firstOrNull()
-    }
+    val activity = remember(context) { TitanHiddenChats.findFragmentActivity(context) }
     val hidden by graph.hiddenChats.state.collectAsState()
     val snapshot by graph.store.snapshot.collectAsState()
     var authError by remember { mutableStateOf(false) }
