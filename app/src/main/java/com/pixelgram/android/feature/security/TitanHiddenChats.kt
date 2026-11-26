@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.biometric.BiometricManager
@@ -63,42 +64,108 @@ class TitanHiddenChats(context: Context) {
     fun lock() { stateFlow.value = stateFlow.value.copy(unlocked = false, selectedChatIds = emptySet()) }
 
     fun authenticate(activity: FragmentActivity, onComplete: (Boolean) -> Unit = {}) {
-        if (BiometricManager.from(activity).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) != BiometricManager.BIOMETRIC_SUCCESS) {
+        val authenticators = if (Build.VERSION.SDK_INT >= 30) {
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        } else {
+            BiometricManager.Authenticators.BIOMETRIC_STRONG
+        }
+        if (BiometricManager.from(activity).canAuthenticate(authenticators) != BiometricManager.BIOMETRIC_SUCCESS) {
             onComplete(false)
             return
         }
-        val cipher = runCatching {
+
+        fun prepareCipher(): Cipher {
             val iv = prefs.getString(KEY_IV, null)
-            Cipher.getInstance("AES/GCM/NoPadding").apply {
-                if (iv == null) init(Cipher.ENCRYPT_MODE, getOrCreateKey())
-                else init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)))
+            return Cipher.getInstance("AES/GCM/NoPadding").apply {
+                if (iv == null) {
+                    init(Cipher.ENCRYPT_MODE, getOrCreateKey())
+                } else {
+                    init(
+                        Cipher.DECRYPT_MODE,
+                        getOrCreateKey(),
+                        GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)),
+                    )
+                }
             }
-        }.getOrElse { onComplete(false); return }
-        val prompt = BiometricPrompt(activity, ContextCompat.getMainExecutor(activity), object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                val authenticated = result.cryptoObject?.cipher ?: run { onComplete(false); return }
-                val config = runCatching {
-                    if (prefs.getString(KEY_CIPHERTEXT, null) == null) {
-                        HiddenConfig(HiddenChatMode.ExcludeSelected, emptySet()).also { check(persist(it, authenticated)) }
-                    } else {
-                        decode(authenticated.doFinal(Base64.decode(prefs.getString(KEY_CIPHERTEXT, ""), Base64.NO_WRAP)).toString(Charsets.UTF_8))
+        }
+
+        val cipher = try {
+            prepareCipher()
+        } catch (_: KeyPermanentlyInvalidatedException) {
+            // A biometric enrollment change invalidates per-use keys. The old ciphertext
+            // cannot be decrypted with a replacement key, so reset only this feature's
+            // encrypted selection and recreate the key rather than leaving it unusable.
+            runCatching {
+                val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+                if (store.containsAlias(KEY_ALIAS)) store.deleteEntry(KEY_ALIAS)
+                prefs.edit()
+                    .remove(KEY_IV)
+                    .remove(KEY_CIPHERTEXT)
+                    .remove(KEY_HASHES)
+                    .putString(KEY_MODE, HiddenChatMode.ExcludeSelected.name)
+                    .apply()
+                stateFlow.value = TitanHiddenChatState()
+            }.getOrElse {
+                onComplete(false)
+                return
+            }
+            runCatching { prepareCipher() }.getOrElse {
+                onComplete(false)
+                return
+            }
+        } catch (_: Throwable) {
+            onComplete(false)
+            return
+        }
+
+        val prompt = BiometricPrompt(
+            activity,
+            ContextCompat.getMainExecutor(activity),
+            object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    val authenticated = result.cryptoObject?.cipher ?: run {
+                        onComplete(false)
+                        return
                     }
-                }.getOrElse { onComplete(false); return }
-                updateIndex(config)
-                stateFlow.value = TitanHiddenChatState(true, config.mode, config.ids)
-                onComplete(true)
-            }
-            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) = onComplete(false)
-        })
-        prompt.authenticate(
-            BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Unlock hidden chats")
-                .setSubtitle("Strong biometric authentication required")
-                .setNegativeButtonText("Cancel")
-                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-                .build(),
-            BiometricPrompt.CryptoObject(cipher),
+                    val config = runCatching {
+                        if (prefs.getString(KEY_CIPHERTEXT, null) == null) {
+                            HiddenConfig(HiddenChatMode.ExcludeSelected, emptySet()).also {
+                                check(persist(it, authenticated))
+                            }
+                        } else {
+                            decode(
+                                authenticated.doFinal(
+                                    Base64.decode(prefs.getString(KEY_CIPHERTEXT, ""), Base64.NO_WRAP),
+                                ).toString(Charsets.UTF_8),
+                            )
+                        }
+                    }.getOrElse {
+                        onComplete(false)
+                        return
+                    }
+                    updateIndex(config)
+                    stateFlow.value = TitanHiddenChatState(true, config.mode, config.ids)
+                    onComplete(true)
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    onComplete(false)
+                }
+            },
         )
+
+        val promptInfo = BiometricPrompt.PromptInfo.Builder()
+            .setTitle("Unlock hidden chats")
+            .setSubtitle("Verify with biometrics or your device screen lock")
+            .setAllowedAuthenticators(authenticators)
+            .apply {
+                if ((authenticators and BiometricManager.Authenticators.DEVICE_CREDENTIAL) == 0) {
+                    setNegativeButtonText("Cancel")
+                }
+            }
+            .build()
+        prompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
     }
 
     fun setMode(mode: HiddenChatMode): Boolean {
@@ -156,10 +223,14 @@ class TitanHiddenChats(context: Context) {
                 .setRandomizedEncryptionRequired(true)
                 .setUserAuthenticationRequired(true)
                 .setInvalidatedByBiometricEnrollment(true)
-            if (Build.VERSION.SDK_INT >= 30) spec.setUserAuthenticationParameters(60, KeyProperties.AUTH_BIOMETRIC_STRONG)
-            else {
+            if (Build.VERSION.SDK_INT >= 30) {
+                spec.setUserAuthenticationParameters(
+                    0,
+                    KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL,
+                )
+            } else {
                 @Suppress("DEPRECATION")
-                spec.setUserAuthenticationValidityDurationSeconds(60)
+                spec.setUserAuthenticationValidityDurationSeconds(-1)
             }
             if (strongBox && Build.VERSION.SDK_INT >= 28) spec.setIsStrongBoxBacked(true)
             return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").run {
