@@ -305,7 +305,6 @@ fun <K> FloatingMorphingNavigationDock(
             }
             }
         }
-        }
 
         if (onFabClick != null || onSearchOpen != null) {
             Surface(
