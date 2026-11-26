@@ -283,6 +283,7 @@ class TitanHiddenChats(context: Context) {
         }
 
         private const val KEY_ALIAS = "pixelgram_titan_hidden_chats_v1"
+        private const val KEY_FORCE_TEE = "force_tee_after_strongbox_failure"
         const val KEY_INDEX_ALIAS = "pixelgram_titan_hidden_chats_index_v1"
         const val KEY_IV = "iv"
         const val KEY_CIPHERTEXT = "ciphertext"
