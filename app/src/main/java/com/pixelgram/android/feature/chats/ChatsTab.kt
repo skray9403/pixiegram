@@ -204,7 +204,7 @@ fun ChatsTab(
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
                     me?.let {
-                        Avatar(title = it.name, seed = it.id, path = it.localPhoto, minithumb = it.minithumb, size = 52.dp)
+                        Avatar(title = it.name, seed = it.id, path = it.localPhoto, minithumb = it.minithumb, size = 52.dp, onNeedFile = { graph.store.requestFileAsync(it.photoFileId) })
                     }
                     Column(Modifier.padding(start = 14.dp)) {
                         Text(me?.name.orEmpty(), style = MaterialTheme.typography.titleMedium)
@@ -379,6 +379,7 @@ fun ChatsTab(
                                     path = me.localPhoto,
                                     minithumb = me.minithumb,
                                     size = 34.dp,
+                                    onNeedFile = { graph.store.requestFileAsync(me.photoFileId) },
                                 ) else Icon(Icons.Rounded.Person, "Profile")
                             }
                         }
