@@ -607,6 +607,9 @@ private fun ChatListPage(graph: AppGraph, navigator: Navigator, listKey: String,
 @Composable
 private fun androidx.compose.foundation.layout.BoxScope.ChatSelectionBars(graph: AppGraph, chosen: List<ChatRow>, onClear: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val activity = remember(context) { com.pixelgram.android.feature.security.TitanHiddenChats.findFragmentActivity(context) }
+    val hiddenState by graph.hiddenChats.state.collectAsState()
     var last by remember { mutableStateOf(chosen) }
     if (chosen.isNotEmpty()) last = chosen
     val rows = last
@@ -645,6 +648,30 @@ private fun androidx.compose.foundation.layout.BoxScope.ChatSelectionBars(graph:
                     run(rows.filter { it.kind != ChatKind.Saved }.map { TdApi.AddChatToList(it.id, if (archived) TdApi.ChatListMain() else TdApi.ChatListArchive()) })
                 }, shapes = androidx.compose.material3.IconButtonDefaults.shapes()) {
                     Icon(Icons.Rounded.Archive, stringResource(if (archived) R.string.chat_unarchive else R.string.chat_archive))
+                }
+                val allHidden = rows.isNotEmpty() && rows.all { it.id in hiddenState.selectedChatIds }
+                androidx.compose.material3.IconButton(
+                    onClick = {
+                        val apply = {
+                            rows.forEach { graph.hiddenChats.setSelected(it.id, !allHidden) }
+                            onClear()
+                        }
+                        if (hiddenState.unlocked) {
+                            apply()
+                        } else {
+                            activity?.let { host ->
+                                graph.hiddenChats.authenticate(host) { authenticated ->
+                                    if (authenticated) apply()
+                                }
+                            } ?: android.widget.Toast.makeText(context, "Biometric unlock is unavailable on this screen", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    shapes = androidx.compose.material3.IconButtonDefaults.shapes(),
+                ) {
+                    Icon(
+                        if (allHidden) androidx.compose.material.icons.Icons.Rounded.Visibility else androidx.compose.material.icons.Icons.Rounded.VisibilityOff,
+                        if (allHidden) "Unhide chats" else "Hide chats",
+                    )
                 }
                 androidx.compose.material3.IconButton(onClick = { run(rows.map { TdApi.ToggleChatIsPinned(listOf(it), it.id, !allPinned) }) }, shapes = androidx.compose.material3.IconButtonDefaults.shapes()) {
                     Icon(Icons.Rounded.PushPin, stringResource(if (allPinned) R.string.chat_unpin else R.string.chat_pin))
@@ -1070,16 +1097,44 @@ private val ShowDistance = 24.dp
 private fun NewMessageSheet(graph: AppGraph, navigator: Navigator, onDismiss: () -> Unit) {
     val snapshot by graph.store.snapshot.collectAsState()
     var ids by remember { mutableStateOf<List<Long>?>(null) }
+    var secretMode by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { ids = runCatching { graph.td.send(TdApi.GetContacts()).userIds.toList() }.getOrDefault(emptyList()) }
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Text(stringResource(R.string.new_message), style = MaterialTheme.typography.titleLargeEmphasized, modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            androidx.compose.material3.FilterChip(
+                selected = !secretMode,
+                onClick = { secretMode = false },
+                label = { Text("Message") },
+                leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Chat, null, Modifier.size(18.dp)) },
+            )
+            androidx.compose.material3.FilterChip(
+                selected = secretMode,
+                onClick = { secretMode = true },
+                label = { Text("Secret chat") },
+                leadingIcon = { Icon(Icons.Rounded.Lock, null, Modifier.size(18.dp)) },
+            )
+        }
+        if (secretMode) {
+            Text(
+                "End-to-end encrypted. Secret chats are device-specific and do not sync to your other devices.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
+            )
+        }
         val list = ids
         if (list == null) {
             Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { LoadingIndicator() }
             return@ModalBottomSheet
         }
-        val users = list.mapNotNull { snapshot.users[it] }.sortedWith(compareByDescending<com.pixelgram.android.td.UserInfo> { it.online }.thenBy { it.name.lowercase() })
+        val users = list.mapNotNull { snapshot.users[it] }
+            .filter { !secretMode || it.bot != true }
+            .sortedWith(compareByDescending<com.pixelgram.android.td.UserInfo> { it.online }.thenBy { it.name.lowercase() })
         LazyColumn(
             contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
@@ -1088,7 +1143,10 @@ private fun NewMessageSheet(graph: AppGraph, navigator: Navigator, onDismiss: ()
                 SegmentedListItem(
                     onClick = {
                         scope.launch {
-                            val chat = runCatching { graph.td.send(TdApi.CreatePrivateChat(user.id, false)) }.getOrNull()
+                            val chat = runCatching {
+                                if (secretMode) graph.td.send(TdApi.CreateNewSecretChat(user.id))
+                                else graph.td.send(TdApi.CreatePrivateChat(user.id, false))
+                            }.getOrNull()
                             onDismiss()
                             chat?.let { navigator.open(ChatKey(it.id)) }
                         }
@@ -1106,10 +1164,18 @@ private fun NewMessageSheet(graph: AppGraph, navigator: Navigator, onDismiss: ()
                     },
                 ) { Text(user.name) }
             }
+            if (secretMode && users.isEmpty()) {
+                item {
+                    Text(
+                        "No eligible contacts for a secret chat.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    )
+                }
+            }
         }
     }
 }
-
 @Composable
 private fun TypingLine() {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
