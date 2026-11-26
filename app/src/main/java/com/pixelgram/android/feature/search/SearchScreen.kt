@@ -82,8 +82,8 @@ private class Results(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun SearchScreen(graph: AppGraph, navigator: Navigator) {
-    var query by rememberSaveable { mutableStateOf("") }
+fun SearchScreen(graph: AppGraph, navigator: Navigator, initialQuery: String = "") {
+    var query by rememberSaveable(initialQuery) { mutableStateOf(initialQuery) }
     var tab by rememberSaveable { mutableStateOf(SearchTab.Chats) }
     var results by remember { mutableStateOf(Results()) }
     var loading by remember { mutableStateOf(false) }

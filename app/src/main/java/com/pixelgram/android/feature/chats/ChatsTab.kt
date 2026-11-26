@@ -204,7 +204,7 @@ fun ChatsTab(
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
                     me?.let {
-                        Avatar(title = it.name, seed = it.id, path = it.localPhoto, minithumb = it.minithumb, size = 52.dp, onNeedFile = { graph.store.requestFileAsync(it.photoFileId) })
+                        Avatar(title = it.name, seed = it.id, path = it.localPhoto ?: snapshot.files[it.photoFileId], minithumb = it.minithumb, size = 52.dp, onNeedFile = { graph.store.requestFileAsync(it.photoFileId) })
                     }
                     Column(Modifier.padding(start = 14.dp)) {
                         Text(me?.name.orEmpty(), style = MaterialTheme.typography.titleMedium)
@@ -230,8 +230,8 @@ fun ChatsTab(
                                     1 -> onOpenArchive()
                                     2 -> hiddenChatsOpen = true
                                     3 -> scope.launch {
-                                        snapshot.lists[LIST_MAIN].orEmpty().forEach { row ->
-                                            if (row.lastMessageId > 0L) try {
+                                        snapshot.allChats.forEach { row ->
+                                            if (row.unread > 0 && row.lastMessageId > 0L) try {
                                                 graph.td.send(TdApi.ViewMessages(row.id, longArrayOf(row.lastMessageId), null, true))
                                             } catch (_: Throwable) { }
                                         }
@@ -376,7 +376,7 @@ fun ChatsTab(
                                 if (me != null) Avatar(
                                     title = me.name,
                                     seed = me.id,
-                                    path = me.localPhoto,
+                                    path = me.localPhoto ?: snapshot.files[me.photoFileId],
                                     minithumb = me.minithumb,
                                     size = 34.dp,
                                     onNeedFile = { graph.store.requestFileAsync(me.photoFileId) },

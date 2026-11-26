@@ -40,6 +40,7 @@ import com.pixelgram.android.feature.contacts.ContactsTab
 import com.pixelgram.android.feature.settings.SettingsTab
 import com.pixelgram.android.nav.BackHandler
 import com.pixelgram.android.nav.Navigator
+import com.pixelgram.android.nav.SearchQueryKey
 import com.pixelgram.android.td.LIST_ARCHIVE
 import com.pixelgram.android.td.LIST_MAIN
 import com.pixelgram.android.ui.components.FloatingMorphingNavigationDock
@@ -167,6 +168,14 @@ fun MainShell(graph: AppGraph, navigator: Navigator) {
             onSearchOpen = { searchExpanded = true },
             onSearchQueryChange = { searchQuery = it },
             onSearchClose = { searchExpanded = false; searchQuery = "" },
+            onSearchSubmit = {
+                val submittedQuery = searchQuery.trim()
+                if (submittedQuery.isNotEmpty()) {
+                    searchExpanded = false
+                    searchQuery = ""
+                    navigator.open(SearchQueryKey(submittedQuery))
+                }
+            },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .onSizeChanged { with(density) { barHeight = it.height.toDp() } },

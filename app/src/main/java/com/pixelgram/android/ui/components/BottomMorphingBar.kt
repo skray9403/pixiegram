@@ -119,6 +119,7 @@ fun <K> FloatingMorphingNavigationDock(
     onSearchOpen: (() -> Unit)? = null,
     onSearchQueryChange: (String) -> Unit = {},
     onSearchClose: (() -> Unit)? = null,
+    onSearchSubmit: (() -> Unit)? = null,
 ) {
     val cappedDestinations = remember(destinations) { destinations.take(3) }
     val motion = com.pixelgram.android.ui.theme.LocalMotionSpec.current
@@ -165,7 +166,7 @@ fun <K> FloatingMorphingNavigationDock(
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
+                        keyboardActions = KeyboardActions(onSearch = { onSearchSubmit?.invoke(); keyboard?.hide() }),
                         decorationBox = { inner ->
                             Box(contentAlignment = Alignment.CenterStart) {
                                 if (searchQuery.isEmpty()) Text(searchPlaceholder, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
