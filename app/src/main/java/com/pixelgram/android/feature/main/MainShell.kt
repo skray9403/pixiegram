@@ -14,7 +14,6 @@ import androidx.compose.material.icons.outlined.People
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Chat
 import androidx.compose.material.icons.rounded.People
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -40,7 +39,6 @@ import com.pixelgram.android.feature.contacts.ContactsTab
 import com.pixelgram.android.feature.settings.SettingsTab
 import com.pixelgram.android.nav.BackHandler
 import com.pixelgram.android.nav.Navigator
-import com.pixelgram.android.nav.SearchKey
 import com.pixelgram.android.td.LIST_ARCHIVE
 import com.pixelgram.android.td.LIST_MAIN
 import com.pixelgram.android.ui.components.FloatingMorphingNavigationDock
@@ -57,9 +55,15 @@ fun MainShell(graph: AppGraph, navigator: Navigator) {
     val tabsOrder = remember { listOf(MainTab.Chats, MainTab.Contacts, MainTab.Settings) }
     var tab by rememberSaveable { mutableStateOf(MainTab.Chats) }
     var list by rememberSaveable { mutableStateOf(LIST_MAIN) }
+    var searchExpanded by rememberSaveable { mutableStateOf(false) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
 
-    BackHandler(enabled = tab != MainTab.Chats || list == LIST_ARCHIVE) {
-        if (list == LIST_ARCHIVE) list = LIST_MAIN else tab = MainTab.Chats
+    BackHandler(enabled = searchExpanded || tab != MainTab.Chats || list == LIST_ARCHIVE) {
+        when {
+            searchExpanded -> { searchExpanded = false; searchQuery = "" }
+            list == LIST_ARCHIVE -> list = LIST_MAIN
+            else -> tab = MainTab.Chats
+        }
     }
 
     val unread by remember {
@@ -124,6 +128,7 @@ fun MainShell(graph: AppGraph, navigator: Navigator) {
                         onOpenDrawer = null,
                         onCloseArchive = { list = LIST_MAIN },
                         onOpenArchive = { list = LIST_ARCHIVE },
+                        externalSearchQuery = if (tab == MainTab.Chats && searchExpanded) searchQuery else "",
                     )
                     MainTab.Contacts -> ContactsTab(
                         graph = graph,
@@ -134,9 +139,16 @@ fun MainShell(graph: AppGraph, navigator: Navigator) {
                         graph = graph,
                         navigator = navigator,
                         onOpenDrawer = null,
+                        externalSearchQuery = if (tab == MainTab.Settings && searchExpanded) searchQuery else "",
                     )
                 }
             }
+        }
+
+        val searchPlaceholder = when (tab) {
+            MainTab.Chats -> stringResource(R.string.search_chats)
+            MainTab.Contacts -> "Search contacts"
+            MainTab.Settings -> "Search settings"
         }
 
         FloatingMorphingNavigationDock(
@@ -146,7 +158,13 @@ fun MainShell(graph: AppGraph, navigator: Navigator) {
             isFabCollapsed = true,
             fabLabel = stringResource(R.string.action_search),
             fabIcon = Icons.Rounded.Search,
-            onFabClick = { navigator.open(SearchKey) },
+            onFabClick = null,
+            searchExpanded = searchExpanded,
+            searchQuery = searchQuery,
+            searchPlaceholder = searchPlaceholder,
+            onSearchOpen = { searchExpanded = true },
+            onSearchQueryChange = { searchQuery = it },
+            onSearchClose = { searchExpanded = false; searchQuery = "" },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .onSizeChanged { with(density) { barHeight = it.height.toDp() } },
