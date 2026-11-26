@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -72,6 +73,7 @@ fun SettingsTab(graph: AppGraph, navigator: Navigator, onOpenDrawer: (() -> Unit
     val me = snapshot.users[snapshot.meId]
     var confirmLogout by remember { mutableStateOf(false) }
     var showQr by remember { mutableStateOf(false) }
+    var hiddenChatsOpen by remember { mutableStateOf(false) }
     me?.username?.takeIf { showQr }?.let { name -> com.pixelgram.android.feature.profile.ProfileQrSheet(name) { showQr = false } }
     val pickAvatar = com.pixelgram.android.feature.profile.rememberAvatarPicker(graph)
     Scaffold(contentWindowInsets = androidx.compose.foundation.layout.WindowInsets(0)) { padding ->
@@ -150,38 +152,23 @@ fun SettingsTab(graph: AppGraph, navigator: Navigator, onOpenDrawer: (() -> Unit
                 }
             }
             SettingsGroup {
-                val balance by androidx.compose.runtime.produceState<org.drinkless.tdlib.TdApi.StarAmount?>(null) { value = com.pixelgram.android.feature.premium.starBalance(graph) }
                 SettingsItem(
-                    title = stringResource(R.string.premium_title),
-                    painter = androidx.compose.ui.res.painterResource(R.drawable.tg_premium),
-                    iconBackground = com.pixelgram.android.feature.premium.PremiumGradient[1],
-                    iconTint = androidx.compose.ui.graphics.Color.White,
-                    position = SegmentPosition.Top,
-                    onClick = { navigator.open(com.pixelgram.android.nav.PremiumKey) },
-                    link = "pg://premium",
-                )
-                SettingsItem(
-                    title = stringResource(R.string.stars_title),
-                    painter = androidx.compose.ui.res.painterResource(R.drawable.tg_stars),
-                    iconBackground = com.pixelgram.android.feature.premium.StarGold[1],
-                    iconTint = androidx.compose.ui.graphics.Color.White,
-                    position = SegmentPosition.Middle,
-                    onClick = { navigator.open(com.pixelgram.android.nav.StarsKey) },
-                    link = "pg://stars",
-                ) { balance?.let { Text(com.pixelgram.android.feature.premium.stars(it), color = MaterialTheme.colorScheme.onSurfaceVariant) } }
-                SettingsItem(
-                    title = stringResource(R.string.business_title),
-                    painter = androidx.compose.ui.res.painterResource(R.drawable.tg_business),
-                    iconBackground = androidx.compose.ui.graphics.Color(0xFFE5484D),
-                    iconTint = androidx.compose.ui.graphics.Color.White,
-                    position = SegmentPosition.Bottom,
-                    onClick = { navigator.open(com.pixelgram.android.nav.BusinessKey) },
-                    link = "pg://business",
+                    title = "Hidden chats",
+                    subtitle = "Protect selected chats with strong biometrics",
+                    icon = Icons.Rounded.Lock,
+                    iconBackground = MaterialTheme.colorScheme.secondaryContainer,
+                    iconTint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    position = SegmentPosition.Single,
+                    onClick = { hiddenChatsOpen = true },
                 )
             }
             HelpGroup()
             Spacer(Modifier.height(24.dp + (if (onBack != null) 0.dp else com.pixelgram.android.ui.components.LocalBottomBarPadding.current)).let { if (onBack != null) it.navigationBarsPadding() else it })
         }
+    }
+    if (hiddenChatsOpen) com.pixelgram.android.feature.security.TitanHiddenChatsDialog(graph) {
+        graph.hiddenChats.lock()
+        hiddenChatsOpen = false
     }
     if (confirmLogout) {
         AlertDialog(
