@@ -342,17 +342,6 @@ fun TitanHiddenChatsDialog(graph: com.pixelgram.android.AppGraph, onDismiss: () 
         },
         dismissButton = { androidx.compose.material3.TextButton(onClick = onDismiss) { androidx.compose.material3.Text("Close") } },
     )
-}
-
-@Composable
-private fun HiddenModeOption(label: String, mode: HiddenChatMode, selected: HiddenChatMode, onSelect: (HiddenChatMode) -> Unit) {
-    androidx.compose.foundation.layout.Row(
-        Modifier.fillMaxWidth().clickable { onSelect(mode) }.padding(vertical = 3.dp),
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-    ) {
-        androidx.compose.material3.RadioButton(selected == mode, onClick = { onSelect(mode) })
-        androidx.compose.material3.Text(label)
-    }
     if (pickingChats && hidden.unlocked) {
         PeoplePicker(
             graph = graph,
@@ -366,6 +355,18 @@ private fun HiddenModeOption(label: String, mode: HiddenChatMode, selected: Hidd
             (selected.toSet() - previous).forEach { graph.hiddenChats.setSelected(it, true) }
             pickingChats = false
         }
+    }
+
+}
+
+@Composable
+private fun HiddenModeOption(label: String, mode: HiddenChatMode, selected: HiddenChatMode, onSelect: (HiddenChatMode) -> Unit) {
+    androidx.compose.foundation.layout.Row(
+        Modifier.fillMaxWidth().clickable { onSelect(mode) }.padding(vertical = 3.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+    ) {
+        androidx.compose.material3.RadioButton(selected == mode, onClick = { onSelect(mode) })
+        androidx.compose.material3.Text(label)
     }
 
 }
