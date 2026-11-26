@@ -649,11 +649,25 @@ private fun androidx.compose.foundation.layout.BoxScope.ChatSelectionBars(graph:
                 }, shapes = androidx.compose.material3.IconButtonDefaults.shapes()) {
                     Icon(Icons.Rounded.Archive, stringResource(if (archived) R.string.chat_unarchive else R.string.chat_archive))
                 }
-                val allHidden = rows.isNotEmpty() && rows.all { it.id in hiddenState.selectedChatIds }
+                val hideableRows = rows.filter { it.kind != ChatKind.Saved }
+                val allHidden = hideableRows.isNotEmpty() && hideableRows.all { row ->
+                    when (hiddenState.mode) {
+                        com.pixelgram.android.feature.security.HiddenChatMode.ExcludeSelected -> row.id in hiddenState.selectedChatIds
+                        com.pixelgram.android.feature.security.HiddenChatMode.IncludeOnlySelected -> row.id !in hiddenState.selectedChatIds
+                    }
+                }
                 androidx.compose.material3.IconButton(
+                    enabled = hideableRows.isNotEmpty(),
                     onClick = {
                         val apply = {
-                            rows.forEach { graph.hiddenChats.setSelected(it.id, !allHidden) }
+                            val shouldHide = !allHidden
+                            hideableRows.forEach { row ->
+                                val selectedInStorage = when (hiddenState.mode) {
+                                    com.pixelgram.android.feature.security.HiddenChatMode.ExcludeSelected -> shouldHide
+                                    com.pixelgram.android.feature.security.HiddenChatMode.IncludeOnlySelected -> !shouldHide
+                                }
+                                graph.hiddenChats.setSelected(row.id, selectedInStorage)
+                            }
                             onClear()
                         }
                         if (hiddenState.unlocked) {
